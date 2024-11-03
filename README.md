@@ -1,5 +1,5 @@
 # grab-o-scope
-Capture your oscilliscope screen in a .png file
+Capture your oscilloscope screen in a .png file
 
 `grab-o-scope` is a Python-based command line utility to capture screenshots
 from a variety of oscilloscopes and save them as PNG files.
@@ -196,15 +196,15 @@ To add support for a new oscilloscope model:
     4. Add your new Grabber class to GrabOScope.KNOWN_GRABBERS.
 
 #### Not a Python expert?
-If you have a specific oscilliscope that you want supported, do the following
+If you have a specific oscilloscope that you want supported, do the following
 to capture detailed debugging information about the connected instrument(s):
 ```bash
 grab_o_scope.py --trace
 ```
 Copy the resulting output and create a new issue in https://github.com/rdpoor/grab-o-scope/issues
-with a subject of "Requesting support for \<oscilliscope make and model\>. When
+with a subject of "Requesting support for \<oscilloscope make and model\>. When
 possible, include a link to online programming documentation for your
-oscilliscope.
+oscilloscope.
 
 We cannot promise that your instrument will get support, but with luck some good
 netizen will take up the challenge.
