@@ -2,7 +2,7 @@
 Capture your oscilliscope screen in a .png file
 
 `grab-o-scope` is a Python-based command line utility to capture screenshots
-a variety of oscilloscopes and save them as PNG files.
+from a variety of oscilloscopes and save them as PNG files.
 
 _Note: `grab-o-scope` currently supports the Rigol DHO924 and DS1054Z
 oscilloscopes.  Other brands and models can be easily added -- see the
@@ -65,20 +65,27 @@ the search.
 Note however a full search can be rather slow, especially if you have a lot of
 test gear connected to your USB bus.  If you're impatient and you know already
 know what's retuned by the VISA resource name, you can speed things up by
-specifying it with the `--name` argument:
+specifying a substring of the VISA resource name with the `--name` argument:
 ```bash
 python grab_o_scope.py --name DHO --auto_view
 ```
 In this case, `grab-o-scope` will search only for instruments that have `DHO`
-as part of their VISA resource name (e.g. a Rigol DHO923).  This will run much
+anywhere in their VISA resource name (e.g. a Rigol DHO923).  This will run much
 faster.
 
 ### Network Connected Oscilloscopes
+A typical VISA resource name for a connected instrument will look something
+like this:
+```
+TCPIP0::127.0.0.5::INSTR
+```
 If your device is connected via TCP/IP, you can use the `--name` argument to
 single out the device, as in:
 ```bash
 python grab_o_scope.py --name 127.0.0.5 --auto_view
 ```
+which will find any device that has `127.0.0.5` anywhere in its VISA resource
+name.
 
 ### Writing to a custom filename
 By default, `grab-o-scope` will write the captured screen to `grab-o-scope.png`
@@ -99,12 +106,57 @@ sorts nicely and avoids spaces in the filenames.
 
 ## Developer Details
 
-### How It Works
+### Implementation Details
 
 `grab-o-scope` uses the pyvisa module to search for connected instruments,
 identifies compatible oscilloscopes by querying their IDN strings, and then uses
 the appropriate grabber class (e.g., RigolDHO924Grabber or RigolDS1054ZGrabber)
 to retrieve display data.
+
+#### Step 1: Find all VISA resources.
+`GrabOScope.list_instrument_names()` first calls the pyvisa `list_resources()` 
+method to find all connected VISA instruments.  A typical call might result in:
+```
+(
+    'USB0::0x1AB1::0x044C::DHO9A254401474::INSTR',
+    'USB0::0xF4EC::0x1430::SPD3XIDQ5R4761::INSTR',
+    'ASRL3::INSTR',
+    'ASRL4::INSTR',
+    'TCPIP0::127.0.0.5::INSTR'
+)
+```
+#### Step 2: Filter according to --name argument
+If the `--name <str>` argument is given on the command line, the list of
+instrument names from step 1 is filtered to include only those in which
+`<str>` is a substring.  So for example, `--name USB0` would reduce the
+list of instrument names to those with `USB0` in their name:
+```
+(
+    'USB0::0x1AB1::0x044C::DHO9A254401474::INSTR',
+    'USB0::0xF4EC::0x1430::SPD3XIDQ5R4761::INSTR',
+)
+```
+#### Step 3: Use the SCIP query `*IDN?` on each of the instrument names in 
+order to get detailed device type information.  In the above case:
+```
+VISA Instrument Name => SCIP *IDN? Response
+-------------------------------------------
+USB0::0x1AB1::0x044C::DHO9A254401474::INSTR => RIGOL TECHNOLOGIES,DHO924,DHO9A254401474,00.01.01
+USB0::0xF4EC::0x1430::SPD3XIDQ5R4761::INSTR => Siglent Technologies,SPD3303X-E,SPD3XIDQ5R4761,1.01.01.02.07R2,V3.0
+```
+#### Step 4: Test each `*IDN?` response against each Grabber's IDN_PATTERN
+to see if it is a supported oscilloscope, accumulate a list of matching 
+Grabber classes.  From the above list, the RigolDHO924Grabber.IDN_PATTERN
+matches `RIGOL TECHNOLOGIES,DHO924,DHO9A254401474,00.01.01`, so 
+RigolDHO924G4rabber is added to the list of candidate grabbers.
+#### Step 5:
+If the list of candidate grabbers contains exactly one element,
+`grab-o-scope` invokes that class's `capture_screen()` method which 
+performs the any device-specific actions to capture the bitmap
+data into a Paython bytearray.
+#### Step 6:
+The byte array returned from `capture_screen()` is written into
+a .png file and optionally displayed on the screen.
 
 ### Code Structure
 
