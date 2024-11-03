@@ -169,17 +169,14 @@ a .png file and optionally displayed on the screen.
       define the screen capture process for specific oscilloscopes.
 
 ## Contributing
-
 ### Adding Support for New Oscilloscopes
-
 #### Python experts:
-
 To add support for a new oscilloscope model:
 
-    Define a new subclass of Grabber.
-    Specify an regexp IDN_PATTERN for matching the oscilloscope's IDN string.
-    Implement a capture_screen method to retrieve the display data.
-    Add your new Grabber class to GrabOScope.KNOWN_GRABBERS.
+    1. Define a new subclass of Grabber.
+    2. Specify a regexp IDN_PATTERN for matching the oscilloscope's IDN string.
+    3. Implement a capture_screen method to retrieve the display data.
+    4. Add your new Grabber class to GrabOScope.KNOWN_GRABBERS.
 
 #### Not a Python expert?
 If you have a specific oscilliscope that you want supported, do the following
@@ -196,10 +193,8 @@ We cannot promise that your instrument will get support, but with luck some good
 netizen will take up the challenge.
 
 ### Other issues and bugs
-
 Contributions are welcome! Feel free to submit issues, fork the repository and
 open pull requests.
 
 ## License
-
 MIT License. See LICENSE file for details.
