@@ -17,13 +17,13 @@ developer notes on on "Adding support for a new Oscilloscope"._
 ## Requirements
 
 - Python 3.8+
-- `pipenv` for managing virtual environments
+- `pipenv` for managing virtual environments (optional but useful)
 - `pyvisa` library for VISA instrument control
 - A VISA-compatible resource manager, such as NI-VISA, installed on your system
 
 ## Installation
 
-1. Clone this repository:
+### 1: Clone this repository
 ```bash
 pip install pyvisa
 git clone git@github.com:rdpoor/grab-o-scope.git # clone the respository
@@ -32,13 +32,30 @@ cd grab-o-scope
 Note: Ensure that NI-VISA or a compatible VISA library is installed on your
 system.  `grab-o-scope` relies on pyvisa to interface with the oscilloscope.
 
-## Usage
-
+### 2a: Add pyvisa module (without pipenv)
+```bash
+pip install pyvisa
+```
+### 2b: Add pyvisa module (with pipenv)
+[pipenv](https://pipenv.pypa.io/en/latest/index.html) is a cross-platform tool 
+that creates a per-project sandbox in order to avoid polluting your global 
+Python environment.  Assuming you have `pipenv` on your system, install
+`grab-o-scope` as follows:
+```bash
+pipenv update
+```
+### 3a: Running grab-o-scope (without pipev)
 ```bash
 cd grab-o-scope
 python grab_oscope.py [options]
 ```
-Command-line Options
+### 3b: Running grab-o-scope (without pipev)
+```bash
+cd grab-o-scope
+pipenv shell
+python grab_oscope.py [options]
+```
+## Command-line Options
 
     -n, --name: Specify the name or partial name of a specific instrument (e.g., LAN address or serial number).
     -f, --filename: Set the output file name (default: grab-o-scope.png).
