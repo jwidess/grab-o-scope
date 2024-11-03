@@ -1,3 +1,6 @@
+# App-specific
+grab-o-scope.png
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
@@ -8,6 +11,7 @@ __pycache__/
 
 # Distribution / packaging
 .Python
+Pipfile.lock
 build/
 develop-eggs/
 dist/
