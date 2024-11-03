@@ -15,9 +15,9 @@ _Note: `grab-o-scope` currently supports the Rigol DHO924 and DS1054Z oscillosco
 ## Requirements
 
 - Python 3.8+
-- `pipenv` for managing virtual environments (optional but useful)
-- `pyvisa` library for VISA instrument control
-- A VISA-compatible resource manager, such as NI-VISA, installed on your system
+- [pipenv](https://pipenv.pypa.io/en/latest/index.html) for managing virtual environments (optional but useful).
+- [pyvisa](https://pyvisa.readthedocs.io/en/latest/) library for VISA instrument control.
+- A VISA-compatible resource manager, such as [NI-VISA](https://pyvisa.readthedocs.io/en/latest/faq/getting_nivisa.html), installed on your system.
 
 ## Installation
 
