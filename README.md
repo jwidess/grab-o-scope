@@ -49,7 +49,7 @@ pipenv update
 cd grab-o-scope
 python grab_oscope.py [options]
 ```
-### 3b: Running grab-o-scope (without pipev)
+### 3b: Running grab-o-scope (with pipev)
 ```bash
 cd grab-o-scope
 pipenv shell
