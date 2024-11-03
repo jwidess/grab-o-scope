@@ -44,12 +44,12 @@ Python environment.  Assuming you have `pipenv` on your system, install
 ```bash
 pipenv update
 ```
-### 3a: Running grab-o-scope (without pipev)
+### 3a: Running grab-o-scope (without pipenv)
 ```bash
 cd grab-o-scope
 python grab_oscope.py [options]
 ```
-### 3b: Running grab-o-scope (with pipev)
+### 3b: Running grab-o-scope (with pipenv)
 ```bash
 cd grab-o-scope
 pipenv shell
