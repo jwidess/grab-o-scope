@@ -136,16 +136,18 @@ list of instrument names to those with `USB0` in their name:
     'USB0::0xF4EC::0x1430::SPD3XIDQ5R4761::INSTR',
 )
 ```
-#### Step 3: Use the SCIP query `*IDN?` on each of the instrument names in 
-order to get detailed device type information.  In the above case:
+#### Step 3: Call `*IDN?` on each named instrument
+`grab-o-scope` performs the SCIP query `*IDN?` on each of the instrument names to 
+retrieve detailed device type information.  In the above case:
 ```
 VISA Instrument Name => SCIP *IDN? Response
 -------------------------------------------
 USB0::0x1AB1::0x044C::DHO9A254401474::INSTR => RIGOL TECHNOLOGIES,DHO924,DHO9A254401474,00.01.01
 USB0::0xF4EC::0x1430::SPD3XIDQ5R4761::INSTR => Siglent Technologies,SPD3303X-E,SPD3XIDQ5R4761,1.01.01.02.07R2,V3.0
 ```
-#### Step 4: Test each `*IDN?` response against each Grabber's IDN_PATTERN
-to see if it is a supported oscilloscope, accumulate a list of matching 
+#### Step 4: Pattern mach on each `IDN?` response
+`grab-o-scope` tests each `*IDN?` response against each Grabber's IDN_PATTERN
+to determine if it is a supported oscilloscope, accumulate a list of matching 
 Grabber classes.  From the above list, the RigolDHO924Grabber.IDN_PATTERN
 matches `RIGOL TECHNOLOGIES,DHO924,DHO9A254401474,00.01.01`, so 
 RigolDHO924G4rabber is added to the list of candidate grabbers.
