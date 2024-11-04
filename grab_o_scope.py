@@ -29,6 +29,17 @@ class Grabber:
         """
         pass
 
+class Keystone3000XGrabber(Grabber):
+    """Grabber for the Keystone InfiniiVision 3000T X-Series Oscilloscopes."""
+    # UNTESTED: This is a total guess on what the IDN? command returns.
+    # It is intended to match MSO-X and DSO-X models.
+    IDN_PATTERN = r'KEYSIGHT TECHNOLOGIES,.SO-X.*'
+
+    @classmethod
+    def capture_screen(cls, instrument):
+        buf = instrument.query_binary_values(':DISP:DATA?PNG,COL', datatype='B')
+        return buf
+
 class RigolDHO924Grabber(Grabber):
     """Grabber for the Rigol DHO924 oscilloscope."""
     IDN_PATTERN = r'RIGOL TECHNOLOGIES,DHO924,DHO.*'
@@ -54,7 +65,11 @@ class RigolDS1054ZGrabber(Grabber):
 class GrabOScope:
     """Main class for managing oscilloscope screen captures."""
 
-    KNOWN_GRABBERS = [RigolDHO924Grabber, RigolDS1054ZGrabber]
+    KNOWN_GRABBERS = [
+        Keystone3000XGrabber,
+        RigolDHO924Grabber,
+        RigolDS1054ZGrabber,
+    ]
 
     def __init__(self, options):
         """Initialize the GrabOScope with the specified options.
