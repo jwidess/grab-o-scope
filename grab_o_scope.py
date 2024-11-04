@@ -29,8 +29,8 @@ class Grabber:
         """
         pass
 
-class Keystone3000XGrabber(Grabber):
-    """Grabber for the Keystone InfiniiVision 3000T X-Series Oscilloscopes."""
+class Keysight3000XGrabber(Grabber):
+    """Grabber for the Keysight InfiniVision 3000T X-Series Oscilloscopes."""
     # UNTESTED: This is a total guess on what the IDN? command returns.
     # It is intended to match MSO-X and DSO-X models.
     IDN_PATTERN = r'KEYSIGHT TECHNOLOGIES,.SO-X.*'
@@ -66,7 +66,7 @@ class GrabOScope:
     """Main class for managing oscilloscope screen captures."""
 
     KNOWN_GRABBERS = [
-        Keystone3000XGrabber,
+        Keysight3000XGrabber,
         RigolDHO924Grabber,
         RigolDS1054ZGrabber,
     ]
