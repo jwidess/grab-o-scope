@@ -2,7 +2,7 @@
 _...a cross-platform command line tool for capturing your oscilloscope display in a .png file._
 
 `grab-o-scope` is a Python-based command-line utility to capture screenshots from a variety of oscilloscopes and save them as PNG files, designed to run
-under Windoes, Linux and macOS.
+under Windows, Linux and macOS.
 
 ![example screen grab](./assets/example-grab.png)
 
