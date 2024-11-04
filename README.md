@@ -1,10 +1,10 @@
 # grab-o-scope
+_...a cross-platform command line tool for capturing your oscilloscope display in a .png file._
 
-Capture your oscilloscope screen in a .png file
+`grab-o-scope` is a Python-based command-line utility to capture screenshots from a variety of oscilloscopes and save them as PNG files, designed to run
+under Windoes, Linux and macOS.
 
-`grab-o-scope` is a Python-based command-line utility to capture screenshots from a variety of oscilloscopes and save them as PNG files.
-
-_Note: `grab-o-scope` currently supports the Rigol DHO924 and DS1054Z oscilloscopes. Other brands and models can be easily added -- see the developer notes on "Adding support for a new Oscilloscope"._
+_Note: At present, `grab-o-scope` supports the Rigol DHO924 and DS1054Z oscilloscopes. Other brands and models can be easily added -- see the developer notes on "Adding support for a new Oscilloscope"._
 
 ## Features
 
