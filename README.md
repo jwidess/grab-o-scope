@@ -118,7 +118,8 @@ python grab_o_scope.py --filename "custom_filename.png"
 
 ### Timestamped filenames
 
-This is not specific to `grab-o-scope`, but if you want to timestamp your .png files, you can use the `date` command to create the filename:
+This is not specific to `grab-o-scope`, but it's handy when you're running an automated script that takes periodic screen shots.
+To timestamp your saved .png files, you can use the `date` command in conjunction with the --filename argument:
 
 ```bash
 python grab_o_scope.py --filename `date --iso-8601=seconds`.png
