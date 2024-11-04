@@ -12,13 +12,6 @@ _Note: `grab-o-scope` currently supports the Rigol DHO924 and DS1054Z oscillosco
 - Optionally opens the captured image in the default system viewer
 - Verbose and trace modes for detailed logging and debugging
 
-## Requirements
-
-- Python 3.8+
-- [pipenv](https://pipenv.pypa.io/en/latest/index.html) for managing virtual environments (optional but useful).
-- [pyvisa](https://pyvisa.readthedocs.io/en/latest/) library for VISA instrument control.
-- A VISA-compatible resource manager, such as [NI-VISA](https://pyvisa.readthedocs.io/en/latest/faq/getting_nivisa.html), installed on your system.
-
 ## Installation
 
 ### 1. Clone this repository
@@ -31,13 +24,14 @@ cd grab-o-scope
 Note: Ensure that NI-VISA or a compatible VISA library is installed on your system. 
 `grab-o-scope` relies on pyvisa to interface with the oscilloscope.
 
-### 2a. Add pyvisa module (without pipenv)
+### 2a. Add required modules (without pipenv)
 
 ```bash
 pip install pyvisa
+pip install pyvisa_py
 ```
 
-### 2b. Add pyvisa module (with pipenv)
+### 2b. Add required module (with pipenv)
 
 [pipenv](https://pipenv.pypa.io/en/latest/index.html) is a cross-platform tool that creates a per-project sandbox to avoid polluting your global Python environment. Assuming you have 
 `pipenv` on your system, install `grab-o-scope` as follows:

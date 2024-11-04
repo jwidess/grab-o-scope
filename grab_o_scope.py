@@ -47,6 +47,10 @@ class RigolDS1054ZGrabber(Grabber):
         buf = instrument.query_binary_values(':DISP:DATA? ON,0,PNG', datatype='B')
         return buf
 
+# ******************************************************************************
+# Add device-specific subclasses of Grabber above this line.
+# ******************************************************************************
+
 class GrabOScope:
     """Main class for managing oscilloscope screen captures."""
 
