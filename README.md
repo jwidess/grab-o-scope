@@ -11,27 +11,25 @@ _Note: At present, `grab-o-scope` supports the Rigol DHO924 and DS1054Z oscillos
 - Captures and saves screen images in PNG format
 - Optionally opens the captured image in the default system viewer
 - Verbose and trace modes for detailed logging and debugging
+- Different makes and models of oscilloscopes can be easily supported
 
 ## Installation
 
-### 1. Clone this repository
+### 1a. Clone this repository (using HTTPS)
+
+```bash
+git clone https://github.com/rdpoor/grab-o-scope.git
+cd grab-o-scope
+```
+
+### 1b. Clone this repository (using SSH)
 
 ```bash
 git clone git@github.com:rdpoor/grab-o-scope.git
 cd grab-o-scope
 ```
 
-Note: Ensure that NI-VISA or a compatible VISA library is installed on your system. 
-`grab-o-scope` relies on pyvisa to interface with the oscilloscope.
-
-### 2a. Add required modules (without pipenv)
-
-```bash
-pip install pyvisa
-pip install pyvisa_py
-```
-
-### 2b. Add required module (with pipenv)
+### 2a. Add required modules (with pipenv)
 
 [pipenv](https://pipenv.pypa.io/en/latest/index.html) is a cross-platform tool that creates a per-project sandbox to avoid polluting your global Python environment. Assuming you have 
 `pipenv` on your system, install `grab-o-scope` as follows:
@@ -40,18 +38,25 @@ pip install pyvisa_py
 pipenv update
 ```
 
-### 3a. Running grab-o-scope (without pipenv)
+### 2b. Add required modules (without pipenv)
 
 ```bash
-cd grab-o-scope
-python grab_oscope.py [options]
+pip install pyvisa
+pip install pyvisa_py
 ```
 
-### 3b. Running grab-o-scope (with pipenv)
+### 3a. Running grab-o-scope (with pipenv)
 
 ```bash
 cd grab-o-scope
 pipenv shell
+python grab_oscope.py [options]
+```
+
+### 3b. Running grab-o-scope (without pipenv)
+
+```bash
+cd grab-o-scope
 python grab_oscope.py [options]
 ```
 
