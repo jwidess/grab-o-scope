@@ -183,12 +183,14 @@ The byte array returned from `capture_screen()` is written into a .png file and 
 
 #### Python experts:
 
-To add support for a new oscilloscope model:
+To add support you8rself for a new oscilloscope model:
 
-1. Define a new subclass of Grabber.
-2. Specify a regexp IDN_PATTERN for matching the oscilloscope's IDN string.
-3. Implement a capture_screen method to retrieve the display data.
-4. Add your new Grabber class to GrabOScope.KNOWN_GRABBERS.
+1. Clone this repository.
+2. Define a new subclass of Grabber.
+3. Specify a regexp IDN_PATTERN for matching the oscilloscope's IDN string.
+4. Implement a capture_screen method to retrieve the display data.
+5. Add your new Grabber class to GrabOScope.KNOWN_GRABBERS.
+6. Submit a pull request in https://github.com/rdpoor/grab-o-scope/pulls
 
 #### Not a Python expert?
 
