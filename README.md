@@ -15,6 +15,13 @@ _Note: At present, `grab-o-scope` supports the Rigol DHO924 and DS1054Z oscillos
 - Verbose and trace modes for detailed logging and debugging
 - Different makes and models of oscilloscopes can be easily supported
 
+## Supported Devices
+
+- Keysight InfiniVision 3000T X-Series Oscilloscopes
+  - Tested on: DSOX 3012T
+- Rigol DHO924
+- Rigol DS1054Z
+
 ## Installation
 
 ### 1a. Clone this repository (using HTTPS)
