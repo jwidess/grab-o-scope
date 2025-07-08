@@ -31,13 +31,15 @@ class Grabber:
 
 class Keysight3000XGrabber(Grabber):
     """Grabber for the Keysight InfiniVision 3000T X-Series Oscilloscopes."""
-    # UNTESTED: This is a total guess on what the IDN? command returns.
-    # It is intended to match MSO-X and DSO-X models.
     IDN_PATTERN = r'KEYSIGHT TECHNOLOGIES,.SO-X.*'
 
     @classmethod
     def capture_screen(cls, instrument):
-        buf = instrument.query_binary_values(':DISP:DATA?PNG,COL', datatype='B')
+        # Turn off ink saver to get non-inverted background image
+        # (more info in "Programmer's Guide for InfiniiVision 3000T X-Series Oscilloscopes", page 426)
+        instrument.write(':HARDcopy:INKSaver OFF')
+        # Query the screen image as PNG, color
+        buf = instrument.query_binary_values(':DISPlay:DATA? PNG,COLOR', datatype='B')
         return buf
 
 class RigolDHO924Grabber(Grabber):
