@@ -1,4 +1,5 @@
 # grab-o-scope.ps1
+# Simple script to easily run grab-o-scope.py with a user-friendly interface
 
 do {
     # Prompt for base image name
@@ -16,5 +17,5 @@ do {
     Write-Host "================================================"
     # Ask if the user wants to run again
     $again = Read-Host "Do you want to grab another screenshot? (y/n)"
-} while ($again -eq "y" -or $again -eq "Y")
+} while ($again -eq "y" -or $again -eq "Y" -or $again -eq "")
 pause
