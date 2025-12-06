@@ -45,21 +45,23 @@ pipenv update
 ```bash
 pip install pyvisa
 pip install pyvisa_py
+pip install zeroconf
 ```
+Optionally, run `pip install psutil` to scan all interfaces.
 
 ### 3a. Running grab-o-scope (with pipenv)
 
 ```bash
 cd grab-o-scope
 pipenv shell
-python grab_oscope.py [options]
+python grab_o_scope.py [options]
 ```
 
 ### 3b. Running grab-o-scope (without pipenv)
 
 ```bash
 cd grab-o-scope
-python grab_oscope.py [options]
+python grab_o_scope.py [options]
 ```
 
 ## Command-line Options
@@ -183,7 +185,7 @@ The byte array returned from `capture_screen()` is written into a .png file and 
 
 #### Python experts:
 
-To add support you8rself for a new oscilloscope model:
+To add support yourself for a new oscilloscope model:
 
 1. Clone this repository.
 2. Define a new subclass of Grabber.
