@@ -1,5 +1,5 @@
 from PyQt5.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton
-from PyQt5.QtCore import Qt, pyqtSignal
+from PyQt5.QtCore import Qt, pyqtSignal, QTimer
 from PyQt5.QtGui import QPixmap
 import os
 
@@ -67,6 +67,18 @@ class ImageViewerWidget(QWidget):
         self.loading_overlay.setText("⏳ Capturing...")
         self.loading_overlay.hide()
         
+        # Filename overlay (bottom left)
+        self.filename_overlay = QLabel(self.image_display)
+        self.filename_overlay.setAlignment(Qt.AlignLeft | Qt.AlignBottom)
+        self.filename_overlay.setStyleSheet("""
+            background-color: rgba(0, 0, 0, 100);
+            color: white;
+            font-size: 10pt;
+            padding: 4px 8px;
+            border-radius: 3px;
+        """)
+        self.filename_overlay.hide()
+        
         # Next button
         self.next_button = self._create_nav_button("▶", "Next image (newer)")
         self.next_button.clicked.connect(lambda: self.navigation_requested.emit('next'))
@@ -116,8 +128,22 @@ class ImageViewerWidget(QWidget):
         self.original_pixmap = pixmap
         self.current_image_path = image_path
         self.scale_and_display_image()
+        
+        # Update filename overlay
+        filename = os.path.basename(image_path)
+        self.filename_overlay.setText(filename)
+        self.filename_overlay.show()
+        
+        # Delay positioning to ensure layout is complete
+        QTimer.singleShot(0, self._position_filename_overlay)
+        
         self.image_changed.emit(image_path)
         return True
+    
+    def _position_filename_overlay(self):
+        """Position and raise the filename overlay (called after layout is complete)"""
+        self.update_filename_overlay_position()
+        self.filename_overlay.raise_()
     
     def scale_and_display_image(self):
         """Scale the stored pixmap to fit the current display size"""
@@ -141,6 +167,7 @@ class ImageViewerWidget(QWidget):
         self.image_display.setText("No image captured yet")
         self.current_image_path = None
         self.original_pixmap = None
+        self.filename_overlay.hide()
     
     def show_loading(self):
         """Show loading overlay"""
@@ -161,6 +188,14 @@ class ImageViewerWidget(QWidget):
         """Set the navigation info label text"""
         self.nav_info_label.setText(text)
     
+    def update_filename_overlay_position(self):
+        """Update the position of the filename overlay at bottom left"""
+        if self.filename_overlay.isVisible():
+            self.filename_overlay.adjustSize()
+            x = 10  # 10px from left edge
+            y = self.image_display.height() - self.filename_overlay.height() - 10  # 10px from bottom
+            self.filename_overlay.move(x, y)
+    
     def get_image_display_widget(self):
         """Get the QLabel widget for context menu attachment"""
         return self.image_display
@@ -172,3 +207,5 @@ class ImageViewerWidget(QWidget):
             self.scale_and_display_image()
         if self.loading_overlay.isVisible():
             self.loading_overlay.setGeometry(0, 0, self.image_display.width(), self.image_display.height())
+        if self.filename_overlay.isVisible():
+            self.update_filename_overlay_position()

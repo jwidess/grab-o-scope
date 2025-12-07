@@ -2,7 +2,7 @@ from PyQt5.QtWidgets import (QMainWindow, QPushButton, QVBoxLayout, QHBoxLayout,
                              QWidget, QFileDialog, QMessageBox, QTextEdit, QLabel,
                              QSplitter, QMenu, QAction, QShortcut, QInputDialog)
 from PyQt5.QtCore import Qt, QThread, pyqtSignal, QTimer
-from PyQt5.QtGui import QPixmap, QClipboard, QKeySequence
+from PyQt5.QtGui import QPixmap, QClipboard, QKeySequence, QIcon
 from PyQt5.QtWidgets import QApplication
 from core.grabber_wrapper import GrabberWrapper
 from gui.settings_dialog import SettingsDialog
@@ -45,6 +45,12 @@ class MainWindow(QMainWindow):
         super().__init__()
         self.setWindowTitle("Grab-O-Scope GUI")
         self.setGeometry(100, 100, 900, 700)
+        
+        # Set window icon
+        icon_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 
+                                 'resources', 'icons', 'app_icon.ico')
+        if os.path.exists(icon_path):
+            self.setWindowIcon(QIcon(icon_path))
         
         # Initialize configuration and options
         self.config = ConfigManager()
@@ -460,6 +466,11 @@ class MainWindow(QMainWindow):
         )
         
         if ok and new_name:
+            new_name = new_name.rstrip() # Strip trailing spaces
+            
+            if new_name == old_name_without_ext:
+                return  # Name unchanged, return
+            
             # Add extension back
             new_filename = new_name + old_ext
             new_path = os.path.join(os.path.dirname(old_path), new_filename)
@@ -475,6 +486,8 @@ class MainWindow(QMainWindow):
                 
                 # Update the display with the new path
                 self.image_viewer.current_image_path = new_path
+                # Update the filename overlay
+                self.image_viewer.filename_overlay.setText(new_filename)
                 self.update_navigation_buttons()
                 
             except Exception as e:
