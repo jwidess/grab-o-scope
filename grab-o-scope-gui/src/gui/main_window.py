@@ -146,6 +146,19 @@ class MainWindow(QMainWindow):
         self.image_display.customContextMenuRequested.connect(self.show_image_context_menu)
         image_nav_layout.addWidget(self.image_display, stretch=1)  # Give it stretch priority
         
+        # Create loading overlay (hidden by default)
+        self.loading_overlay = QLabel(self.image_display)
+        self.loading_overlay.setAlignment(Qt.AlignCenter)
+        self.loading_overlay.setStyleSheet("""
+            background-color: rgba(0, 0, 0, 150);
+            color: white;
+            font-size: 24pt;
+            font-weight: bold;
+            border-radius: 10px;
+        """)
+        self.loading_overlay.setText("⏳ Capturing...")
+        self.loading_overlay.hide()
+        
         # Store original pixmap for rescaling
         self.original_pixmap = None
         
@@ -403,6 +416,12 @@ class MainWindow(QMainWindow):
         
         self.capture_button.setEnabled(False)
         self.capture_button.setText("⏳ Capturing...")
+        
+        # Show loading overlay and disable navigation
+        self.show_loading_overlay()
+        self.prev_button.setEnabled(False)
+        self.next_button.setEnabled(False)
+        
         self.log("=" * 50)
         self.log("Starting oscilloscope capture...")
         
@@ -413,20 +432,43 @@ class MainWindow(QMainWindow):
         self.capture_thread.output.connect(self.log)
         self.capture_thread.start()
 
+    def show_loading_overlay(self):
+        """Show the loading overlay on the image display"""
+        # Resize overlay to cover the entire image display
+        self.loading_overlay.setGeometry(0, 0, self.image_display.width(), self.image_display.height())
+        self.loading_overlay.show()
+        self.loading_overlay.raise_()  # Bring to front
+
+    def hide_loading_overlay(self):
+        """Hide the loading overlay"""
+        self.loading_overlay.hide()
+
     def on_capture_finished(self, filename):
         """Handle successful capture"""
         self.capture_button.setEnabled(True)
         self.capture_button.setText("Capture Screen")
+        
+        # Hide loading overlay
+        self.hide_loading_overlay()
+        
         self.log(f"Success! Screen captured and saved as: {filename}")
         self.last_captured_image = os.path.abspath(filename)
         self.display_image(self.last_captured_image)
         self.save_button.setEnabled(True)  # Enable Save button
         self.clear_button.setEnabled(True)  # Enable Clear button
+        
+        # Re-enable navigation buttons after 500ms delay
+        QTimer.singleShot(500, self.update_navigation_buttons)
 
     def on_capture_error(self, error_msg):
         """Handle capture error"""
         self.capture_button.setEnabled(True)
         self.capture_button.setText("Capture Screen")
+        
+        # Hide loading overlay and restore navigation state
+        self.hide_loading_overlay()
+        self.update_navigation_buttons()
+        
         self.log(f"❌ Error: {error_msg}")
         QMessageBox.critical(self, "Capture Error", f"Failed to capture screen:\n{error_msg}")
 
@@ -474,6 +516,10 @@ class MainWindow(QMainWindow):
         # Rescale image when window is resized
         if self.original_pixmap is not None:
             self.scale_and_display_image()
+        
+        # Resize loading overlay to match image display
+        if self.loading_overlay.isVisible():
+            self.loading_overlay.setGeometry(0, 0, self.image_display.width(), self.image_display.height())
 
     def get_sorted_captures(self):
         """Get list of image files from captures directory sorted by modification time"""
