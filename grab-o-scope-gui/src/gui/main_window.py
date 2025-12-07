@@ -2,7 +2,8 @@ from PyQt5.QtWidgets import (QMainWindow, QPushButton, QVBoxLayout, QHBoxLayout,
                              QWidget, QFileDialog, QMessageBox, QTextEdit, QLabel,
                              QSplitter, QMenuBar, QMenu, QAction)
 from PyQt5.QtCore import Qt, QThread, pyqtSignal
-from PyQt5.QtGui import QPixmap
+from PyQt5.QtGui import QPixmap, QClipboard
+from PyQt5.QtWidgets import QApplication
 from core.grabber_wrapper import GrabberWrapper
 from gui.settings_dialog import SettingsDialog
 from core.config_manager import ConfigManager
@@ -81,6 +82,8 @@ class MainWindow(QMainWindow):
         self.image_display.setStyleSheet("border: 2px solid #ccc; background-color: #f0f0f0;")
         self.image_display.setMinimumHeight(300)
         self.image_display.setText("No image captured yet")
+        self.image_display.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.image_display.customContextMenuRequested.connect(self.show_image_context_menu)
         image_layout.addWidget(self.image_display, stretch=1)  # Give it stretch priority
         
         image_widget.setLayout(image_layout)
@@ -117,7 +120,31 @@ class MainWindow(QMainWindow):
         # Buttons
         button_layout = QHBoxLayout()
         
-        self.capture_button = QPushButton("Capture Oscilloscope Screen")
+        self.clear_button = QPushButton("Clear")
+        self.clear_button.setMinimumHeight(40)
+        self.clear_button.setStyleSheet("""
+            QPushButton {
+                background-color: #d13438;
+                color: white;
+                font-size: 14pt;
+                font-weight: bold;
+                border-radius: 5px;
+            }
+            QPushButton:hover {
+                background-color: #a52a2e;
+            }
+            QPushButton:pressed {
+                background-color: #8b2327;
+            }
+            QPushButton:disabled {
+                background-color: #cccccc;
+            }
+        """)
+        self.clear_button.clicked.connect(self.clear_image)
+        self.clear_button.setEnabled(False)  # Disabled until image is captured
+        button_layout.addWidget(self.clear_button, stretch=1)
+        
+        self.capture_button = QPushButton("Capture Screen")
         self.capture_button.setMinimumHeight(40)
         self.capture_button.setStyleSheet("""
             QPushButton {
@@ -138,7 +165,31 @@ class MainWindow(QMainWindow):
             }
         """)
         self.capture_button.clicked.connect(self.capture_screen)
-        button_layout.addWidget(self.capture_button)
+        button_layout.addWidget(self.capture_button, stretch=2)
+        
+        self.save_button = QPushButton("💾 Save As...")
+        self.save_button.setMinimumHeight(40)
+        self.save_button.setStyleSheet("""
+            QPushButton {
+                background-color: #107c10;
+                color: white;
+                font-size: 14pt;
+                font-weight: bold;
+                border-radius: 5px;
+            }
+            QPushButton:hover {
+                background-color: #0e6b0e;
+            }
+            QPushButton:pressed {
+                background-color: #0c5a0c;
+            }
+            QPushButton:disabled {
+                background-color: #cccccc;
+            }
+        """)
+        self.save_button.clicked.connect(self.save_image_as)
+        self.save_button.setEnabled(False)  # Disabled until image is captured
+        button_layout.addWidget(self.save_button, stretch=1)
         
         self.settings_button = QPushButton("⚙️ Settings")
         self.settings_button.setMinimumHeight(40)
@@ -158,7 +209,7 @@ class MainWindow(QMainWindow):
             }
         """)
         self.settings_button.clicked.connect(self.open_settings)
-        button_layout.addWidget(self.settings_button)
+        button_layout.addWidget(self.settings_button, stretch=1)
         
         main_layout.addLayout(button_layout)
         
@@ -228,15 +279,17 @@ class MainWindow(QMainWindow):
     def on_capture_finished(self, filename):
         """Handle successful capture"""
         self.capture_button.setEnabled(True)
-        self.capture_button.setText("Capture Oscilloscope Screen")
+        self.capture_button.setText("Capture Screen")
         self.log(f"Success! Screen captured and saved as: {filename}")
         self.last_captured_image = os.path.abspath(filename)
         self.display_image(self.last_captured_image)
+        self.save_button.setEnabled(True)  # Enable Save button
+        self.clear_button.setEnabled(True)  # Enable Clear button
 
     def on_capture_error(self, error_msg):
         """Handle capture error"""
         self.capture_button.setEnabled(True)
-        self.capture_button.setText("Capture Oscilloscope Screen")
+        self.capture_button.setText("Capture Screen")
         self.log(f"❌ Error: {error_msg}")
         QMessageBox.critical(self, "Capture Error", f"Failed to capture screen:\n{error_msg}")
 
@@ -261,6 +314,15 @@ class MainWindow(QMainWindow):
         self.image_display.setPixmap(scaled_pixmap)
         self.log(f"Displaying image: {os.path.basename(image_path)}")
 
+    def clear_image(self):
+        """Clear the displayed image"""
+        self.image_display.clear()
+        self.image_display.setText("No image captured yet")
+        self.last_captured_image = None
+        self.save_button.setEnabled(False)
+        self.clear_button.setEnabled(False)
+        self.log("🗑️ Image cleared")
+
     def open_image_file(self):
         """Open and display an image file"""
         image_path, _ = QFileDialog.getOpenFileName(
@@ -272,6 +334,8 @@ class MainWindow(QMainWindow):
         if image_path:
             self.display_image(image_path)
             self.last_captured_image = image_path
+            self.save_button.setEnabled(True)  # Enable Save button
+            self.clear_button.setEnabled(True)  # Enable Clear button
 
     def save_image_as(self):
         """Save the current image to a new location"""
@@ -294,6 +358,41 @@ class MainWindow(QMainWindow):
             except Exception as e:
                 self.log(f"❌ Failed to save image: {str(e)}")
                 QMessageBox.critical(self, "Save Error", f"Failed to save image:\n{str(e)}")
+
+    def copy_to_clipboard(self):
+        """Copy the current image to clipboard"""
+        if not self.last_captured_image:
+            QMessageBox.warning(self, "No Image", "No image to copy. Capture an image first.")
+            return
+        
+        try:
+            # Load the image as QPixmap
+            pixmap = QPixmap(self.last_captured_image)
+            if pixmap.isNull():
+                self.log(f"❌ Failed to load image for clipboard")
+                QMessageBox.warning(self, "Copy Error", "Failed to load image for clipboard")
+                return
+            
+            # Copy to clipboard
+            clipboard = QApplication.clipboard()
+            clipboard.setPixmap(pixmap)
+            self.log("Image copied to clipboard")
+        except Exception as e:
+            self.log(f"❌ Failed to copy to clipboard: {str(e)}")
+            QMessageBox.critical(self, "Copy Error", f"Failed to copy to clipboard:\n{str(e)}")
+    
+    def show_image_context_menu(self, position):
+        """Show context menu for image display"""
+        if not self.last_captured_image:
+            return
+        
+        # Create context menu
+        menu = QMenu(self)
+        copy_action = menu.addAction("Copy Image to Clipboard")
+        copy_action.triggered.connect(self.copy_to_clipboard)
+        
+        # Show menu at cursor position
+        menu.exec_(self.image_display.mapToGlobal(position))
 
     def open_settings(self):
         """Open settings dialog"""

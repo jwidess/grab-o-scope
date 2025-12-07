@@ -73,7 +73,7 @@ class SettingsDialog(QDialog):
         # Info section
         info_label = QLabel(
             "<b>Tips:</b><br>"
-            "• <b>Instrument Filter:</b> Leave blank for auto-detect (recommended)<br>"
+            "• <b>Instrument Filter:</b> Leave blank for auto-detect<br>"
             "• Search is case-insensitive: 'ds', 'DS', or 'rigol' all work<br>"
             "• Partial matches: 'DS' finds all DS series, '10.10.1' finds subnet<br>"
             "• Output filename can include directory path"
@@ -89,7 +89,7 @@ class SettingsDialog(QDialog):
         self.save_button = QPushButton("Save")
         self.save_button.setMinimumWidth(100)
         self.save_button.clicked.connect(self.save_settings)
-        self.save_button.setDefault(True)  # Make Save the default button (activated by Enter)
+        self.save_button.setDefault(True)  # Make Save the default button
         self.save_button.setAutoDefault(True)
         self.save_button.setStyleSheet("""
             QPushButton {
