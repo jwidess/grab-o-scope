@@ -18,8 +18,7 @@ class ConfigManager:
             # Create default settings
             self.settings = {
                 'instrument_name': '',
-                'output_filename': 'grab-o-scope.png',
-                'output_directory': '',
+                'capture_directory': '',  # Empty means use default 'captures' folder
                 'trace_mode': False
             }
             self.save_settings()

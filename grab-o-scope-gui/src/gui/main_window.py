@@ -9,6 +9,7 @@ from gui.settings_dialog import SettingsDialog
 from core.config_manager import ConfigManager
 from argparse import Namespace
 import os
+from datetime import datetime
 
 class CaptureThread(QThread):
     """Thread for capturing oscilloscope screen without blocking GUI"""
@@ -43,10 +44,10 @@ class MainWindow(QMainWindow):
         self.config = ConfigManager()
         config_data = self.config.load_config()
         
-        # Create options from config
+        # Create options from config (filename will be set dynamically per capture)
         self.options = Namespace(
             name=config_data.get('instrument_name'),
-            filename=config_data.get('output_filename', 'grab-o-scope.png'),
+            filename=None,  # Will be set dynamically with timestamp
             auto_view=False,
             verbose=True,  # Always verbose for GUI output
             trace=True  # Always enable trace mode for detailed output
@@ -235,6 +236,12 @@ class MainWindow(QMainWindow):
         
         file_menu.addSeparator()
         
+        open_captures_folder_action = QAction('Open Captures Folder', self)
+        open_captures_folder_action.triggered.connect(self.open_captures_folder)
+        file_menu.addAction(open_captures_folder_action)
+        
+        file_menu.addSeparator()
+        
         exit_action = QAction('Exit', self)
         exit_action.triggered.connect(self.close)
         file_menu.addAction(exit_action)
@@ -258,11 +265,35 @@ class MainWindow(QMainWindow):
         """Clear the log output"""
         self.log_output.clear()
 
+    def get_capture_directory(self):
+        """Get or create the captures directory"""
+        config_data = self.config.load_config()
+        capture_dir = config_data.get('capture_directory', '')
+        
+        # If no custom directory, use default 'captures' folder in GUI directory
+        if not capture_dir:
+            capture_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'captures')
+        
+        # Create directory if it doesn't exist
+        os.makedirs(capture_dir, exist_ok=True)
+        return capture_dir
+
+    def generate_timestamped_filename(self):
+        """Generate a filename with timestamp"""
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        capture_dir = self.get_capture_directory()
+        filename = os.path.join(capture_dir, f"capture_{timestamp}.png")
+        return filename
+
     def capture_screen(self):
         """Start capture in separate thread"""
         if self.capture_thread and self.capture_thread.isRunning():
             self.log("⚠️ Capture already in progress...")
             return
+        
+        # Generate timestamped filename for this capture
+        self.options.filename = self.generate_timestamped_filename()
+        self.grabber.options = self.options
         
         self.capture_button.setEnabled(False)
         self.capture_button.setText("⏳ Capturing...")
@@ -401,7 +432,28 @@ class MainWindow(QMainWindow):
             # Reload configuration
             config_data = self.config.load_config()
             self.options.name = config_data.get('instrument_name')
-            self.options.filename = config_data.get('output_filename', 'grab-o-scope.png')
             self.options.trace = True  # Always keep trace mode enabled
             self.grabber.options = self.options
             self.log("⚙️ Settings updated")
+
+    def open_captures_folder(self):
+        """Open the captures folder in file explorer"""
+        import subprocess
+        import platform
+        
+        capture_dir = self.get_capture_directory()
+        
+        try:
+            if platform.system() == 'Windows':
+                os.startfile(capture_dir)
+            elif platform.system() == 'Darwin':  # macOS
+                subprocess.Popen(['open', capture_dir])
+            else:  # Linux
+                subprocess.Popen(['xdg-open', capture_dir])
+            
+            self.log(f"Opened captures folder: {capture_dir}")
+        except Exception as e:
+            self.log(f"❌ Failed to open captures folder: {str(e)}")
+            QMessageBox.warning(self, "Error", f"Failed to open captures folder:\n{str(e)}")
+
+
