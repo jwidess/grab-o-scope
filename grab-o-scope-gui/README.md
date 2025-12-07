@@ -1,14 +1,14 @@
 # grab-o-scope-gui
-_...a GUI wrapper for the grab-o-scope command-line tool, designed to simplify the process of capturing oscilloscope screen images._
+_This is a GUI wrapper for the `grab-o-scope.py` Python script, designed to simplify the process of capturing oscilloscope screen images._
 
-`grab-o-scope-gui` is a Python-based graphical user interface that allows users to easily capture screenshots from various oscilloscopes and display them. This project serves as a wrapper around the existing `grab_o_scope.py` script, providing a user-friendly interface while keeping the original functionality intact for future enhancements.
+`grab-o-scope-gui` is a Python-based graphical user interface that allows a user to easily capture screenshots and display them. This project serves as a wrapper around the existing `grab_o_scope.py` script, keeping the original functionality intact for future enhancements.
 
 ![example screen grab](./resources/gui-example.png)
 
 ## Features
 
 - **Intuitive GUI** for capturing oscilloscope screen images with real-time console output
-- **Smart Device Filtering** by IP address or model name (case-insensitive)
+- **Device Filtering** by IP address or model name in settings (case-insensitive)
 - **Timestamped Captures** saved as `capture_YYYYMMDD_HHMMSS.png` format
 - **Image Navigation** with arrow buttons and keyboard shortcuts (← →) to browse through captured images
 - **Context Menu Actions**:

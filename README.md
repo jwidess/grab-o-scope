@@ -6,10 +6,13 @@ under Windows, Linux and macOS.
 
 ![example screen grab](./assets/example-grab.png)
 
-_Note: At present, `grab-o-scope` supports the Rigol DHO924 and DS1054Z oscilloscopes. Other brands and models can be easily added -- see the developer notes on "Adding support for a new Oscilloscope"._
+### GUI Interface:
+
+![GUI Example](./grab-o-scope-gui/resources/gui-example.png)
 
 ## Features
 
+- **NEW!** - Python Based GUI, [more info HERE!](./grab-o-scope-gui/README.md)
 - Captures and saves screen images in PNG format
 - Optionally opens the captured image in the default system viewer
 - Verbose and trace modes for detailed logging and debugging
