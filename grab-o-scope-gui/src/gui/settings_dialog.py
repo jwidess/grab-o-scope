@@ -23,7 +23,7 @@ class SettingsDialog(QDialog):
         scope_layout = QFormLayout()
         
         self.instrument_name_input = QLineEdit()
-        self.instrument_name_input.setPlaceholderText("e.g., DS, DHO924, 10.10.1.123, or leave blank for auto-detect")
+        self.instrument_name_input.setPlaceholderText("e.g., DS, DHO924, 10.10.1.123, leave blank for auto-detect")
         self.instrument_name_input.setToolTip(
             "Filter oscilloscope detection (case-insensitive):\n"
             "• Model name or manufacturer (e.g., DS, DHO924, Rigol)\n"

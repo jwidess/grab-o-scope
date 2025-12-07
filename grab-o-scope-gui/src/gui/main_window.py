@@ -1,15 +1,21 @@
 from PyQt5.QtWidgets import (QMainWindow, QPushButton, QVBoxLayout, QHBoxLayout, 
                              QWidget, QFileDialog, QMessageBox, QTextEdit, QLabel,
-                             QSplitter, QMenuBar, QMenu, QAction, QShortcut)
+                             QSplitter, QMenu, QAction, QShortcut)
 from PyQt5.QtCore import Qt, QThread, pyqtSignal, QTimer
 from PyQt5.QtGui import QPixmap, QClipboard, QKeySequence
 from PyQt5.QtWidgets import QApplication
 from core.grabber_wrapper import GrabberWrapper
 from gui.settings_dialog import SettingsDialog
+from gui.image_viewer_widget import ImageViewerWidget
 from core.config_manager import ConfigManager
+from utils.navigation_manager import NavigationManager
 from argparse import Namespace
 import os
+import platform
+import subprocess
+import shutil
 from datetime import datetime
+
 
 class CaptureThread(QThread):
     """Thread for capturing oscilloscope screen without blocking GUI"""
@@ -20,7 +26,6 @@ class CaptureThread(QThread):
     def __init__(self, grabber):
         super().__init__()
         self.grabber = grabber
-        # Set up output callback to emit signals
         self.grabber.set_output_callback(self.emit_output)
     
     def emit_output(self, line):
@@ -34,169 +39,70 @@ class CaptureThread(QThread):
         except Exception as e:
             self.error.emit(str(e))
 
+
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Grab-O-Scope GUI")
         self.setGeometry(100, 100, 900, 700)
         
-        # Load configuration
+        # Initialize configuration and options
         self.config = ConfigManager()
         config_data = self.config.load_config()
-        
-        # Create options from config (filename will be set dynamically per capture)
         self.options = Namespace(
             name=config_data.get('instrument_name'),
-            filename=None,  # Will be set dynamically with timestamp
+            filename=None,
             auto_view=False,
-            verbose=True,  # Always verbose for GUI output
-            trace=True  # Always enable trace mode for detailed output
+            verbose=True,
+            trace=True
         )
+        
+        # Initialize components
         self.grabber = GrabberWrapper(self.options)
-        self.last_captured_image = None
         self.capture_thread = None
+        self.nav_manager = NavigationManager(self.get_capture_directory)
 
+        # Build UI
         self.init_ui()
         self.create_menu_bar()
+        self.setup_keyboard_shortcuts()
+        self.setup_refresh_timer()
         
-        # Update navigation state on startup
-        self.update_navigation_buttons()
-        
-        # Set up timer to periodically check for file changes in captures directory
-        self.refresh_timer = QTimer(self)
-        self.refresh_timer.timeout.connect(self.refresh_navigation_state)
-        self.refresh_timer.start(1000)
-
-    def refresh_navigation_state(self):
-        """Periodically refresh navigation buttons to detect external file changes"""
-        # Only update if not actively capturing
-        if not (self.capture_thread and self.capture_thread.isRunning()):
-            self.update_navigation_buttons()
+        self.log("Grab-O-Scope GUI initialized")
+        self.log("Ready to capture from oscilloscope")
 
     def init_ui(self):
-        # Main layout with splitter
+        """Initialize the user interface"""
         main_widget = QWidget()
         main_layout = QVBoxLayout()
-        
-        # Create splitter for image and log
         splitter = QSplitter(Qt.Vertical)
         
-        # Top section: Image display
-        image_widget = QWidget()
-        image_layout = QVBoxLayout()
-        image_layout.setContentsMargins(5, 5, 5, 5)
-        image_layout.setSpacing(5)
+        # Image viewer
+        self.image_viewer = ImageViewerWidget()
+        self.image_viewer.navigation_requested.connect(self.handle_navigation)
+        self.image_viewer.get_image_display_widget().setContextMenuPolicy(Qt.CustomContextMenu)
+        self.image_viewer.get_image_display_widget().customContextMenuRequested.connect(self.show_image_context_menu)
+        splitter.addWidget(self.image_viewer)
         
-        # Header with title and navigation info
-        header_layout = QHBoxLayout()
-        image_label = QLabel("Captured Image:")
-        image_label.setStyleSheet("font-weight: bold; font-size: 12pt; padding: 2px;")
-        image_label.setMaximumHeight(25)
-        header_layout.addWidget(image_label)
+        # Console output
+        log_widget = self._create_log_widget()
+        splitter.addWidget(log_widget)
         
-        header_layout.addStretch()
+        # Set splitter proportions
+        splitter.setStretchFactor(0, 3)
+        splitter.setStretchFactor(1, 1)
+        splitter.setSizes([450, 200])
+        main_layout.addWidget(splitter)
         
-        self.nav_info_label = QLabel("")
-        self.nav_info_label.setStyleSheet("color: #666; font-size: 10pt; padding: 2px;")
-        self.nav_info_label.setMaximumHeight(25)
-        header_layout.addWidget(self.nav_info_label)
+        # Control buttons
+        button_layout = self._create_button_layout()
+        main_layout.addLayout(button_layout)
         
-        image_layout.addLayout(header_layout)
-        
-        # Create horizontal layout for image with navigation buttons
-        image_nav_layout = QHBoxLayout()
-        
-        # Left arrow button
-        self.prev_button = QPushButton("◀")
-        self.prev_button.setMaximumWidth(50)
-        self.prev_button.setSizePolicy(self.prev_button.sizePolicy().horizontalPolicy(), 
-                                       self.prev_button.sizePolicy().Expanding)
-        self.prev_button.setStyleSheet("""
-            QPushButton {
-                background-color: #5c5c5c;
-                color: white;
-                font-size: 20pt;
-                font-weight: bold;
-                border-radius: 5px;
-            }
-            QPushButton:hover {
-                background-color: #707070;
-            }
-            QPushButton:pressed {
-                background-color: #4a4a4a;
-            }
-            QPushButton:disabled {
-                background-color: #cccccc;
-                color: #999999;
-            }
-        """)
-        self.prev_button.setToolTip("Previous image (older)")
-        self.prev_button.clicked.connect(self.show_previous_image)
-        self.prev_button.setEnabled(False)
-        image_nav_layout.addWidget(self.prev_button)
-        
-        # Image display in the center
-        self.image_display = QLabel()
-        self.image_display.setAlignment(Qt.AlignCenter)
-        self.image_display.setStyleSheet("border: 2px solid #ccc; background-color: #f0f0f0;")
-        self.image_display.setMinimumHeight(300)
-        self.image_display.setText("No image captured yet")
-        self.image_display.setScaledContents(False)  # We'll handle scaling manually
-        self.image_display.setContextMenuPolicy(Qt.CustomContextMenu)
-        self.image_display.customContextMenuRequested.connect(self.show_image_context_menu)
-        image_nav_layout.addWidget(self.image_display, stretch=1)  # Give it stretch priority
-        
-        # Create loading overlay (hidden by default)
-        self.loading_overlay = QLabel(self.image_display)
-        self.loading_overlay.setAlignment(Qt.AlignCenter)
-        self.loading_overlay.setStyleSheet("""
-            background-color: rgba(0, 0, 0, 150);
-            color: white;
-            font-size: 24pt;
-            font-weight: bold;
-            border-radius: 10px;
-        """)
-        self.loading_overlay.setText("⏳ Capturing...")
-        self.loading_overlay.hide()
-        
-        # Store original pixmap for rescaling
-        self.original_pixmap = None
-        
-        # Right arrow button
-        self.next_button = QPushButton("▶")
-        self.next_button.setMaximumWidth(50)
-        self.next_button.setSizePolicy(self.next_button.sizePolicy().horizontalPolicy(), 
-                                       self.next_button.sizePolicy().Expanding)
-        self.next_button.setStyleSheet("""
-            QPushButton {
-                background-color: #5c5c5c;
-                color: white;
-                font-size: 20pt;
-                font-weight: bold;
-                border-radius: 5px;
-            }
-            QPushButton:hover {
-                background-color: #707070;
-            }
-            QPushButton:pressed {
-                background-color: #4a4a4a;
-            }
-            QPushButton:disabled {
-                background-color: #cccccc;
-                color: #999999;
-            }
-        """)
-        self.next_button.setToolTip("Next image (newer)")
-        self.next_button.clicked.connect(self.show_next_image)
-        self.next_button.setEnabled(False)
-        image_nav_layout.addWidget(self.next_button)
-        
-        image_layout.addLayout(image_nav_layout)
-        
-        image_widget.setLayout(image_layout)
-        splitter.addWidget(image_widget)
-        
-        # Bottom section: Log output
+        main_widget.setLayout(main_layout)
+        self.setCentralWidget(main_widget)
+
+    def _create_log_widget(self):
+        """Create the console log widget"""
         log_widget = QWidget()
         log_layout = QVBoxLayout()
         log_layout.setContentsMargins(5, 5, 5, 5)
@@ -209,173 +115,116 @@ class MainWindow(QMainWindow):
         
         self.log_output = QTextEdit()
         self.log_output.setReadOnly(True)
-        self.log_output.setMinimumHeight(150)  # Minimum height
-        self.log_output.setStyleSheet("background-color: #1e1e1e; color: #d4d4d4; font-family: Consolas, monospace; font-size: 9pt;")
+        self.log_output.setMinimumHeight(150)
+        self.log_output.setStyleSheet(
+            "background-color: #1e1e1e; color: #d4d4d4; "
+            "font-family: Consolas, monospace; font-size: 9pt;"
+        )
         log_layout.addWidget(self.log_output)
-        
         log_widget.setLayout(log_layout)
-        splitter.addWidget(log_widget)
-        
-        # Set splitter proportions (image section gets more space)
-        # Also set initial sizes for the splitter sections
-        splitter.setStretchFactor(0, 3)
-        splitter.setStretchFactor(1, 1)
-        splitter.setSizes([450, 200])  # Initial sizes, 450px for image, 200px for console
-        
-        main_layout.addWidget(splitter)
-        
-        # Buttons
+        return log_widget
+
+    def _create_button_layout(self):
+        """Create the control button layout"""
         button_layout = QHBoxLayout()
         
-        self.clear_button = QPushButton("Clear")
-        self.clear_button.setMinimumHeight(40)
-        self.clear_button.setStyleSheet("""
-            QPushButton {
-                background-color: #d13438;
-                color: white;
-                font-size: 14pt;
-                font-weight: bold;
-                border-radius: 5px;
-            }
-            QPushButton:hover {
-                background-color: #a52a2e;
-            }
-            QPushButton:pressed {
-                background-color: #8b2327;
-            }
-            QPushButton:disabled {
-                background-color: #cccccc;
-            }
-        """)
-        self.clear_button.clicked.connect(self.clear_image)
-        self.clear_button.setEnabled(False)  # Disabled until image is captured
+        # Clear button
+        self.clear_button = self._create_button(
+            "Clear", "#d13438", "#a52a2e", "#8b2327",
+            self.clear_image, stretch=1
+        )
+        self.clear_button.setEnabled(False)
         button_layout.addWidget(self.clear_button, stretch=1)
         
-        self.capture_button = QPushButton("Capture Screen")
-        self.capture_button.setMinimumHeight(40)
-        self.capture_button.setStyleSheet("""
-            QPushButton {
-                background-color: #0078d4;
-                color: white;
-                font-size: 14pt;
-                font-weight: bold;
-                border-radius: 5px;
-            }
-            QPushButton:hover {
-                background-color: #106ebe;
-            }
-            QPushButton:pressed {
-                background-color: #005a9e;
-            }
-            QPushButton:disabled {
-                background-color: #cccccc;
-            }
-        """)
-        self.capture_button.clicked.connect(self.capture_screen)
+        # Capture button
+        self.capture_button = self._create_button(
+            "Capture Screen", "#0078d4", "#106ebe", "#005a9e",
+            self.capture_screen, stretch=2
+        )
         button_layout.addWidget(self.capture_button, stretch=2)
         
-        self.save_button = QPushButton("💾 Save As...")
-        self.save_button.setMinimumHeight(40)
-        self.save_button.setStyleSheet("""
-            QPushButton {
-                background-color: #107c10;
-                color: white;
-                font-size: 14pt;
-                font-weight: bold;
-                border-radius: 5px;
-            }
-            QPushButton:hover {
-                background-color: #0e6b0e;
-            }
-            QPushButton:pressed {
-                background-color: #0c5a0c;
-            }
-            QPushButton:disabled {
-                background-color: #cccccc;
-            }
-        """)
-        self.save_button.clicked.connect(self.save_image_as)
-        self.save_button.setEnabled(False)  # Disabled until image is captured
+        # Save button
+        self.save_button = self._create_button(
+            "💾 Save As...", "#107c10", "#0e6b0e", "#0c5a0c",
+            self.save_image_as, stretch=1
+        )
+        self.save_button.setEnabled(False)
         button_layout.addWidget(self.save_button, stretch=1)
         
-        self.settings_button = QPushButton("⚙️ Settings")
-        self.settings_button.setMinimumHeight(40)
-        self.settings_button.setStyleSheet("""
-            QPushButton {
-                background-color: #5c5c5c;
+        # Settings button
+        self.settings_button = self._create_button(
+            "⚙️ Settings", "#5c5c5c", "#707070", "#4a4a4a",
+            self.open_settings, stretch=1
+        )
+        button_layout.addWidget(self.settings_button, stretch=1)
+        
+        return button_layout
+
+    def _create_button(self, text, color, hover, pressed, callback, stretch=1):
+        """Create a styled button"""
+        button = QPushButton(text)
+        button.setMinimumHeight(40)
+        button.setStyleSheet(f"""
+            QPushButton {{
+                background-color: {color};
                 color: white;
                 font-size: 14pt;
                 font-weight: bold;
                 border-radius: 5px;
-            }
-            QPushButton:hover {
-                background-color: #707070;
-            }
-            QPushButton:pressed {
-                background-color: #4a4a4a;
-            }
+            }}
+            QPushButton:hover {{ background-color: {hover}; }}
+            QPushButton:pressed {{ background-color: {pressed}; }}
+            QPushButton:disabled {{ background-color: #cccccc; }}
         """)
-        self.settings_button.clicked.connect(self.open_settings)
-        button_layout.addWidget(self.settings_button, stretch=1)
-        
-        main_layout.addLayout(button_layout)
-        
-        main_widget.setLayout(main_layout)
-        self.setCentralWidget(main_widget)
-        
-        # Set up keyboard shortcuts for navigation
-        self.setup_keyboard_shortcuts()
-        
-        self.log("Grab-O-Scope GUI initialized")
-        self.log(f"Ready to capture from oscilloscope")
+        button.clicked.connect(callback)
+        return button
 
     def setup_keyboard_shortcuts(self):
         """Setup keyboard shortcuts for navigation"""
-        # Left arrow key for previous image
-        left_shortcut = QShortcut(QKeySequence(Qt.Key_Left), self)
-        left_shortcut.activated.connect(self.show_previous_image)
-        
-        # Right arrow key for next image
-        right_shortcut = QShortcut(QKeySequence(Qt.Key_Right), self)
-        right_shortcut.activated.connect(self.show_next_image)
+        QShortcut(QKeySequence(Qt.Key_Left), self).activated.connect(lambda: self.handle_navigation('prev'))
+        QShortcut(QKeySequence(Qt.Key_Right), self).activated.connect(lambda: self.handle_navigation('next'))
+
+    def setup_refresh_timer(self):
+        """Setup timer to check for file changes"""
+        self.refresh_timer = QTimer(self)
+        self.refresh_timer.timeout.connect(self.refresh_navigation_state)
+        self.refresh_timer.start(1000) # Refresh every second
+        # Initial update
+        self.update_navigation_buttons()
+
+    def refresh_navigation_state(self):
+        """Periodically refresh navigation buttons"""
+        if not (self.capture_thread and self.capture_thread.isRunning()):
+            self.update_navigation_buttons()
 
     def create_menu_bar(self):
+        """Create the menu bar"""
         menubar = self.menuBar()
         
         # File menu
         file_menu = menubar.addMenu('File')
-        
-        open_action = QAction('Open Image...', self)
-        open_action.triggered.connect(self.open_image_file)
-        file_menu.addAction(open_action)
-        
-        save_as_action = QAction('Save As...', self)
-        save_as_action.triggered.connect(self.save_image_as)
-        file_menu.addAction(save_as_action)
-        
+        file_menu.addAction(self._create_action('Open Image...', self.open_image_file))
+        file_menu.addAction(self._create_action('Save As...', self.save_image_as))
         file_menu.addSeparator()
-        
-        open_captures_folder_action = QAction('Open Captures Folder', self)
-        open_captures_folder_action.triggered.connect(self.open_captures_folder)
-        file_menu.addAction(open_captures_folder_action)
-        
+        file_menu.addAction(self._create_action('Open Captures Folder', self.open_captures_folder))
         file_menu.addSeparator()
-        
-        exit_action = QAction('Exit', self)
-        exit_action.triggered.connect(self.close)
-        file_menu.addAction(exit_action)
+        file_menu.addAction(self._create_action('Exit', self.close))
         
         # View menu
         view_menu = menubar.addMenu('View')
-        
-        clear_log_action = QAction('Clear Log', self)
-        clear_log_action.triggered.connect(self.clear_log)
-        view_menu.addAction(clear_log_action)
+        view_menu.addAction(self._create_action('Clear Log', self.clear_log))
 
+    def _create_action(self, text, callback):
+        """Create a menu action"""
+        action = QAction(text, self)
+        action.triggered.connect(callback)
+        return action
+
+    # ==================== Logging ====================
+    
     def log(self, message):
         """Add message to log output"""
         self.log_output.append(message)
-        # Auto-scroll to bottom
         self.log_output.verticalScrollBar().setValue(
             self.log_output.verticalScrollBar().maximum()
         )
@@ -384,16 +233,19 @@ class MainWindow(QMainWindow):
         """Clear the log output"""
         self.log_output.clear()
 
+    # ==================== Capture Directory ====================
+    
     def get_capture_directory(self):
         """Get or create the captures directory"""
         config_data = self.config.load_config()
         capture_dir = config_data.get('capture_directory', '')
         
-        # If no custom directory, use default 'captures' folder in GUI directory
         if not capture_dir:
-            capture_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'captures')
+            capture_dir = os.path.join(
+                os.path.dirname(os.path.dirname(os.path.dirname(__file__))),
+                'captures'
+            )
         
-        # Create directory if it doesn't exist
         os.makedirs(capture_dir, exist_ok=True)
         return capture_dir
 
@@ -401,310 +253,123 @@ class MainWindow(QMainWindow):
         """Generate a filename with timestamp"""
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         capture_dir = self.get_capture_directory()
-        filename = os.path.join(capture_dir, f"capture_{timestamp}.png")
-        return filename
+        return os.path.join(capture_dir, f"capture_{timestamp}.png")
 
+    # ==================== Capture ====================
+    
     def capture_screen(self):
         """Start capture in separate thread"""
         if self.capture_thread and self.capture_thread.isRunning():
             self.log("⚠️ Capture already in progress...")
             return
         
-        # Generate timestamped filename for this capture
         self.options.filename = self.generate_timestamped_filename()
         self.grabber.options = self.options
         
         self.capture_button.setEnabled(False)
         self.capture_button.setText("⏳ Capturing...")
-        
-        # Show loading overlay and disable navigation
-        self.show_loading_overlay()
-        self.prev_button.setEnabled(False)
-        self.next_button.setEnabled(False)
+        self.image_viewer.show_loading()
+        self.image_viewer.set_navigation_state(False, False)
         
         self.log("=" * 50)
-        self.log("Starting oscilloscope capture...")
+        self.log("Starting capture...")
         
-        # Create and start capture thread
         self.capture_thread = CaptureThread(self.grabber)
         self.capture_thread.finished.connect(self.on_capture_finished)
         self.capture_thread.error.connect(self.on_capture_error)
         self.capture_thread.output.connect(self.log)
         self.capture_thread.start()
 
-    def show_loading_overlay(self):
-        """Show the loading overlay on the image display"""
-        # Resize overlay to cover the entire image display
-        self.loading_overlay.setGeometry(0, 0, self.image_display.width(), self.image_display.height())
-        self.loading_overlay.show()
-        self.loading_overlay.raise_()  # Bring to front
-
-    def hide_loading_overlay(self):
-        """Hide the loading overlay"""
-        self.loading_overlay.hide()
-
     def on_capture_finished(self, filename):
         """Handle successful capture"""
         self.capture_button.setEnabled(True)
         self.capture_button.setText("Capture Screen")
-        
-        # Hide loading overlay
-        self.hide_loading_overlay()
+        self.image_viewer.hide_loading()
         
         self.log(f"Success! Screen captured and saved as: {filename}")
-        self.last_captured_image = os.path.abspath(filename)
-        self.display_image(self.last_captured_image)
-        self.save_button.setEnabled(True)  # Enable Save button
-        self.clear_button.setEnabled(True)  # Enable Clear button
         
-        # Re-enable navigation buttons after 500ms delay
-        QTimer.singleShot(500, self.update_navigation_buttons)
+        if self.image_viewer.display_image(filename):
+            self.nav_manager.current_image = filename
+            self.save_button.setEnabled(True)
+            self.clear_button.setEnabled(True)
+            # Re-enable navigation after delay
+            QTimer.singleShot(500, self.update_navigation_buttons)
+        else:
+            self.log(f"⚠️ Failed to display captured image")
 
     def on_capture_error(self, error_msg):
         """Handle capture error"""
         self.capture_button.setEnabled(True)
         self.capture_button.setText("Capture Screen")
-        
-        # Hide loading overlay and restore navigation state
-        self.hide_loading_overlay()
+        self.image_viewer.hide_loading()
         self.update_navigation_buttons()
         
         self.log(f"❌ Error: {error_msg}")
         QMessageBox.critical(self, "Capture Error", f"Failed to capture screen:\n{error_msg}")
 
-    def display_image(self, image_path):
-        """Display image in the GUI"""
-        if not os.path.exists(image_path):
-            self.log(f"⚠️ Image file not found: {image_path}")
-            return
+    # ==================== Navigation ====================
+    
+    def handle_navigation(self, direction):
+        """Handle navigation button/key press"""
+        if direction == 'prev':
+            image_path = self.nav_manager.get_previous_image()
+        else:
+            image_path = self.nav_manager.get_next_image()
         
-        pixmap = QPixmap(image_path)
-        if pixmap.isNull():
-            self.log(f"⚠️ Failed to load image: {image_path}")
-            return
-        
-        # Store original pixmap for rescaling on resize
-        self.original_pixmap = pixmap
-        
-        # Scale and display
-        self.scale_and_display_image()
-        
-        # Update navigation buttons
-        self.update_navigation_buttons()
-
-    def scale_and_display_image(self):
-        """Scale the stored pixmap to fit the current display size"""
-        if self.original_pixmap is None or self.original_pixmap.isNull():
-            return
-        
-        # Get the available size (account for margins and borders)
-        available_width = self.image_display.width() - 10
-        available_height = self.image_display.height() - 10
-        
-        # Scale image to fit display while maintaining aspect ratio
-        scaled_pixmap = self.original_pixmap.scaled(
-            available_width,
-            available_height,
-            Qt.KeepAspectRatio,
-            Qt.SmoothTransformation
-        )
-        self.image_display.setPixmap(scaled_pixmap)
-
-    def resizeEvent(self, event):
-        """Handle window resize to rescale the image"""
-        super().resizeEvent(event)
-        # Rescale image when window is resized
-        if self.original_pixmap is not None:
-            self.scale_and_display_image()
-        
-        # Resize loading overlay to match image display
-        if self.loading_overlay.isVisible():
-            self.loading_overlay.setGeometry(0, 0, self.image_display.width(), self.image_display.height())
-
-    def get_sorted_captures(self):
-        """Get list of image files from captures directory sorted by modification time"""
-        capture_dir = self.get_capture_directory()
-        
-        if not os.path.exists(capture_dir):
-            return []
-        
-        # Get all image files
-        image_files = []
-        for filename in os.listdir(capture_dir):
-            if filename.lower().endswith(('.png', '.jpg', '.jpeg', '.bmp')):
-                filepath = os.path.join(capture_dir, filename)
-                if os.path.isfile(filepath):
-                    image_files.append(filepath)
-        
-        # Sort by modification time (oldest first)
-        image_files.sort(key=lambda x: os.path.getmtime(x))
-        
-        return image_files
+        if image_path and self.image_viewer.display_image(image_path):
+            self.nav_manager.current_image = image_path
+            self.save_button.setEnabled(True)
+            self.clear_button.setEnabled(True)
+            self.update_navigation_buttons()
 
     def update_navigation_buttons(self):
-        """Update the enabled/disabled state of navigation buttons"""
-        sorted_captures = self.get_sorted_captures()
+        """Update navigation button states"""
+        nav_state = self.nav_manager.get_navigation_state(
+            self.image_viewer.current_image_path
+        )
         
-        # If no captures exist at all, disable navigation
-        if not sorted_captures:
-            self.prev_button.setEnabled(False)
-            self.next_button.setEnabled(False)
-            self.nav_info_label.setText("")
-            return
-        
-        # If we have captures but no image is loaded, enable both to allow initial navigation
-        if not self.last_captured_image or not os.path.exists(self.last_captured_image):
-            self.prev_button.setEnabled(len(sorted_captures) > 0)
-            self.next_button.setEnabled(len(sorted_captures) > 0)
-            self.nav_info_label.setText(f"Total images: {len(sorted_captures)} | Use ← → arrow keys to navigate")
-            return
-        
-        # If current image is not in the list (was deleted or modified), enable both buttons
-        # to allow user to navigate to find valid images
-        if self.last_captured_image not in sorted_captures:
-            self.prev_button.setEnabled(True)
-            self.next_button.setEnabled(True)
-            self.nav_info_label.setText(f"Total images: {len(sorted_captures)} | Use ← → arrow keys to navigate")
-            return
-        
-        current_index = sorted_captures.index(self.last_captured_image)
-        total_images = len(sorted_captures)
-        
-        # Update info label
-        self.nav_info_label.setText(f"Image {current_index + 1} of {total_images} | Use ← → arrow keys to navigate")
-        
-        # Enable previous button if not at the beginning
-        self.prev_button.setEnabled(current_index > 0)
-        
-        # Enable next button if not at the end
-        self.next_button.setEnabled(current_index < len(sorted_captures) - 1)
+        self.image_viewer.set_navigation_state(
+            nav_state['prev_enabled'],
+            nav_state['next_enabled']
+        )
+        self.image_viewer.set_nav_info(nav_state['info_text'])
 
-    def show_previous_image(self):
-        """Show the previous image (older in time)"""
-        if not self.last_captured_image:
-            # If no image loaded, try to load the most recent one
-            sorted_captures = self.get_sorted_captures()
-            if sorted_captures:
-                self.last_captured_image = sorted_captures[-1]
-                self.display_image(self.last_captured_image)
-                self.save_button.setEnabled(True)
-                self.clear_button.setEnabled(True)
-            return
-        
-        sorted_captures = self.get_sorted_captures()
-        if not sorted_captures:
-            return
-        
-        # If current image was deleted/modified, find the closest one by timestamp
-        if self.last_captured_image not in sorted_captures:
-            current_mtime = os.path.getmtime(self.last_captured_image) if os.path.exists(self.last_captured_image) else 0
-            # Find the closest image that's older
-            prev_image = None
-            for img in sorted_captures:
-                img_mtime = os.path.getmtime(img)
-                if img_mtime < current_mtime:
-                    prev_image = img
-                else:
-                    break
-            if prev_image:
-                self.last_captured_image = prev_image
-                self.display_image(prev_image)
-                self.save_button.setEnabled(True)
-                self.clear_button.setEnabled(True)
-            return
-        
-        current_index = sorted_captures.index(self.last_captured_image)
-        if current_index > 0:
-            prev_image = sorted_captures[current_index - 1]
-            self.last_captured_image = prev_image
-            self.display_image(prev_image)
-            self.save_button.setEnabled(True)
-            self.clear_button.setEnabled(True)
-
-    def show_next_image(self):
-        """Show the next image (newer in time)"""
-        if not self.last_captured_image:
-            # If no image loaded, try to load the oldest one
-            sorted_captures = self.get_sorted_captures()
-            if sorted_captures:
-                self.last_captured_image = sorted_captures[0]
-                self.display_image(self.last_captured_image)
-                self.save_button.setEnabled(True)
-                self.clear_button.setEnabled(True)
-            return
-        
-        sorted_captures = self.get_sorted_captures()
-        if not sorted_captures:
-            return
-        
-        # If current image was deleted/modified, find the closest one by timestamp
-        if self.last_captured_image not in sorted_captures:
-            current_mtime = os.path.getmtime(self.last_captured_image) if os.path.exists(self.last_captured_image) else float('inf')
-            # Find the closest image that's newer
-            next_image = None
-            for img in reversed(sorted_captures):
-                img_mtime = os.path.getmtime(img)
-                if img_mtime > current_mtime:
-                    next_image = img
-                else:
-                    break
-            if next_image:
-                self.last_captured_image = next_image
-                self.display_image(next_image)
-                self.save_button.setEnabled(True)
-                self.clear_button.setEnabled(True)
-            return
-        
-        current_index = sorted_captures.index(self.last_captured_image)
-        if current_index < len(sorted_captures) - 1:
-            next_image = sorted_captures[current_index + 1]
-            self.last_captured_image = next_image
-            self.display_image(next_image)
-            self.save_button.setEnabled(True)
-            self.clear_button.setEnabled(True)
-
+    # ==================== Image Management ====================
+    
     def clear_image(self):
         """Clear the displayed image"""
-        self.image_display.clear()
-        self.image_display.setText("No image captured yet")
-        self.last_captured_image = None
-        self.original_pixmap = None  # Clear stored pixmap
+        self.image_viewer.clear_image()
+        self.nav_manager.current_image = None
         self.save_button.setEnabled(False)
         self.clear_button.setEnabled(False)
-        # Update navigation - will enable buttons if captures exist
         self.update_navigation_buttons()
-        self.log("🗑️ Image cleared")
+        self.log("Image cleared")
 
     def open_image_file(self):
         """Open and display an image file"""
         image_path, _ = QFileDialog.getOpenFileName(
-            self, 
-            "Open Image File", 
-            "", 
+            self, "Open Image File", "",
             "Images (*.png *.jpg *.jpeg *.bmp)"
         )
-        if image_path:
-            self.display_image(image_path)
-            self.last_captured_image = image_path
-            self.save_button.setEnabled(True)  # Enable Save button
-            self.clear_button.setEnabled(True)  # Enable Clear button
+        if image_path and self.image_viewer.display_image(image_path):
+            self.nav_manager.current_image = image_path
+            self.save_button.setEnabled(True)
+            self.clear_button.setEnabled(True)
+            self.update_navigation_buttons()
 
     def save_image_as(self):
         """Save the current image to a new location"""
-        if not self.last_captured_image:
+        if not self.image_viewer.current_image_path:
             QMessageBox.warning(self, "No Image", "No image to save. Capture an image first.")
             return
         
         save_path, _ = QFileDialog.getSaveFileName(
-            self,
-            "Save Image As",
-            "",
+            self, "Save Image As", "",
             "PNG Image (*.png);;JPEG Image (*.jpg);;All Files (*.*)"
         )
         if save_path:
             try:
-                import shutil
-                shutil.copy(self.last_captured_image, save_path)
+                shutil.copy(self.image_viewer.current_image_path, save_path)
                 self.log(f"Image saved to: {save_path}")
                 QMessageBox.information(self, "Success", f"Image saved to:\n{save_path}")
             except Exception as e:
@@ -713,21 +378,16 @@ class MainWindow(QMainWindow):
 
     def copy_to_clipboard(self):
         """Copy the current image to clipboard"""
-        if not self.last_captured_image:
+        if not self.image_viewer.current_image_path:
             QMessageBox.warning(self, "No Image", "No image to copy. Capture an image first.")
             return
         
         try:
-            # Load the image as QPixmap
-            pixmap = QPixmap(self.last_captured_image)
+            pixmap = QPixmap(self.image_viewer.current_image_path)
             if pixmap.isNull():
-                self.log(f"❌ Failed to load image for clipboard")
-                QMessageBox.warning(self, "Copy Error", "Failed to load image for clipboard")
-                return
+                raise Exception("Failed to load image")
             
-            # Copy to clipboard
-            clipboard = QApplication.clipboard()
-            clipboard.setPixmap(pixmap)
+            QApplication.clipboard().setPixmap(pixmap)
             self.log("Image copied to clipboard")
         except Exception as e:
             self.log(f"❌ Failed to copy to clipboard: {str(e)}")
@@ -735,46 +395,39 @@ class MainWindow(QMainWindow):
     
     def show_image_context_menu(self, position):
         """Show context menu for image display"""
-        if not self.last_captured_image:
+        if not self.image_viewer.current_image_path:
             return
         
-        # Create context menu
         menu = QMenu(self)
         copy_action = menu.addAction("Copy Image to Clipboard")
         copy_action.triggered.connect(self.copy_to_clipboard)
-        
-        # Show menu at cursor position
-        menu.exec_(self.image_display.mapToGlobal(position))
+        menu.exec_(self.image_viewer.get_image_display_widget().mapToGlobal(position))
 
+    # ==================== Settings & Utilities ====================
+    
     def open_settings(self):
         """Open settings dialog"""
         dialog = SettingsDialog(self.config, self)
         if dialog.exec_():
-            # Reload configuration
             config_data = self.config.load_config()
             self.options.name = config_data.get('instrument_name')
-            self.options.trace = True  # Always keep trace mode enabled
+            self.options.trace = True
             self.grabber.options = self.options
             self.log("⚙️ Settings updated")
 
     def open_captures_folder(self):
         """Open the captures folder in file explorer"""
-        import subprocess
-        import platform
-        
         capture_dir = self.get_capture_directory()
         
         try:
             if platform.system() == 'Windows':
                 os.startfile(capture_dir)
-            elif platform.system() == 'Darwin':  # macOS
+            elif platform.system() == 'Darwin':
                 subprocess.Popen(['open', capture_dir])
-            else:  # Linux
+            else:
                 subprocess.Popen(['xdg-open', capture_dir])
             
             self.log(f"Opened captures folder: {capture_dir}")
         except Exception as e:
             self.log(f"❌ Failed to open captures folder: {str(e)}")
             QMessageBox.warning(self, "Error", f"Failed to open captures folder:\n{str(e)}")
-
-
