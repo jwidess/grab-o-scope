@@ -154,28 +154,64 @@ class GrabOScope:
     def find_grabbers(self, instrument_names, target_name):
         """Find all matching grabbers for connected instruments.
 
+        Uses a two pass approach:
+        1. First tries fast filtering by VISA resource name (for IPs, resource types)
+        2. Falls back to querying all devices if needed (for model names)
+
         Args:
             instrument_names (list): List of instrument names.
-            target_name (str): Specific instrument name to target.
+            target_name (str): Specific instrument name to target (can be part of resource name, IP, or model name).
 
         Returns:
             list: List of dictionaries containing matched grabber classes and instrument details.
         """
         grabbers = []
+        
+        # Determine search strategy based on target_name
         if target_name is not None:
-            instrument_names = [n for n in instrument_names if target_name in n]
-
+            # Check if target_name looks like it could match a VISA resource name
+            # (contains IP indicators, VISA keywords, or is purely numeric)
+            resource_indicators = ['.', ':', 'TCPIP', 'GPIB', 'USB', 'ASRL']
+            target_upper = target_name.upper()
+            
+            # Check if purely numeric (likely an IP address) or contains resource indicators
+            is_numeric = target_name.replace('.', '').replace(':', '').isdigit()
+            has_resource_indicator = any(indicator in target_upper for indicator in resource_indicators)
+            looks_like_resource = is_numeric or has_resource_indicator
+            
+            if looks_like_resource:
+                # Fast path: Filter instrument list first (for IPs and resource names) case-insensitive match
+                target_lower = target_name.lower()
+                filtered_names = [n for n in instrument_names if target_lower in n.lower()]
+                if filtered_names:
+                    self.trace_print(f'Fast filtering: {len(instrument_names)} instruments -> {len(filtered_names)} matching "{target_name}"')
+                    instrument_names = filtered_names
+                else:
+                    # No match in resource names, fall back to full search
+                    self.trace_print(f'No resource name matches for "{target_name}", searching all devices by IDN...')
+            else:
+                # Need to query all devices
+                self.trace_print(f'"{target_name}" appears to be a model name, querying all {len(instrument_names)} devices...')
+        
         self.verbose_print('Searching for known oscilloscopes...')
         for instrument_name in instrument_names:
             idn_string = self.get_idn_string(instrument_name)
             if idn_string is not None:
                 grabber = self.find_grabber(idn_string)
                 if grabber is not None:
-                    grabbers.append({
-                        'cls': grabber,
-                        'name': instrument_name,
-                        'idn': idn_string
-                    })
+                    # Check if this oscilloscope matches the target_name filter
+                    matches = True
+                    if target_name is not None:
+                        # Search in both the VISA resource name and the IDN string (case-insensitive)
+                        target_lower = target_name.lower()
+                        matches = (target_lower in instrument_name.lower()) or (target_lower in idn_string.lower())
+                    
+                    if matches:
+                        grabbers.append({
+                            'cls': grabber,
+                            'name': instrument_name,
+                            'idn': idn_string
+                        })
         self.verbose_print(f'Found oscilloscopes: {grabbers}')
         return grabbers
 
