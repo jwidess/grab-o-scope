@@ -1,6 +1,6 @@
 from PyQt5.QtWidgets import (QMainWindow, QPushButton, QVBoxLayout, QHBoxLayout, 
                              QWidget, QFileDialog, QMessageBox, QTextEdit, QLabel,
-                             QSplitter, QMenu, QAction, QShortcut)
+                             QSplitter, QMenu, QAction, QShortcut, QInputDialog)
 from PyQt5.QtCore import Qt, QThread, pyqtSignal, QTimer
 from PyQt5.QtGui import QPixmap, QClipboard, QKeySequence
 from PyQt5.QtWidgets import QApplication
@@ -393,14 +393,115 @@ class MainWindow(QMainWindow):
             self.log(f"❌ Failed to copy to clipboard: {str(e)}")
             QMessageBox.critical(self, "Copy Error", f"Failed to copy to clipboard:\n{str(e)}")
     
+    def delete_current_image(self):
+        """Delete the currently displayed image"""
+        if not self.image_viewer.current_image_path:
+            QMessageBox.warning(self, "No Image", "No image to delete.")
+            return
+        
+        # Confirm deletion
+        reply = QMessageBox.question(
+            self, 
+            "Confirm Delete", 
+            f"Are you sure you want to delete this image?\n\n{os.path.basename(self.image_viewer.current_image_path)}",
+            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.No
+        )
+        
+        if reply == QMessageBox.Yes:
+            try:
+                file_to_delete = self.image_viewer.current_image_path
+                
+                # Try to navigate to another image first
+                captures = self.nav_manager.get_sorted_captures()
+                if len(captures) > 1:
+                    # Try to get the next image, or previous if this is the last
+                    current_idx = captures.index(file_to_delete) if file_to_delete in captures else -1
+                    if current_idx >= 0:
+                        if current_idx < len(captures) - 1:
+                            # Show next image
+                            self.image_viewer.display_image(captures[current_idx + 1])
+                        elif current_idx > 0:
+                            # Show previous image
+                            self.image_viewer.display_image(captures[current_idx - 1])
+                
+                # Delete the file
+                os.remove(file_to_delete)
+                self.log(f"Deleted: {os.path.basename(file_to_delete)}")
+                
+                # If we only had one image, clear the display
+                if len(captures) <= 1:
+                    self.image_viewer.clear_image()
+                
+                # Update navigation
+                self.update_navigation_buttons()
+                
+            except Exception as e:
+                self.log(f"❌ Failed to delete image: {str(e)}")
+                QMessageBox.critical(self, "Delete Error", f"Failed to delete image:\n{str(e)}")
+    
+    def rename_current_image(self):
+        """Rename the currently displayed image"""
+        if not self.image_viewer.current_image_path:
+            QMessageBox.warning(self, "No Image", "No image to rename.")
+            return
+        
+        old_path = self.image_viewer.current_image_path
+        old_filename = os.path.basename(old_path)
+        old_name_without_ext = os.path.splitext(old_filename)[0]
+        old_ext = os.path.splitext(old_filename)[1]
+        
+        # Ask for new name
+        new_name, ok = QInputDialog.getText(
+            self,
+            "Rename Image",
+            "Enter new filename (without extension):",
+            text=old_name_without_ext
+        )
+        
+        if ok and new_name:
+            # Add extension back
+            new_filename = new_name + old_ext
+            new_path = os.path.join(os.path.dirname(old_path), new_filename)
+            
+            # Check if file already exists
+            if os.path.exists(new_path) and new_path != old_path:
+                QMessageBox.warning(self, "File Exists", f"A file named '{new_filename}' already exists.")
+                return
+            
+            try:
+                os.rename(old_path, new_path)
+                self.log(f"Renamed: {old_filename} → {new_filename}")
+                
+                # Update the display with the new path
+                self.image_viewer.current_image_path = new_path
+                self.update_navigation_buttons()
+                
+            except Exception as e:
+                self.log(f"❌ Failed to rename image: {str(e)}")
+                QMessageBox.critical(self, "Rename Error", f"Failed to rename image:\n{str(e)}")
+    
     def show_image_context_menu(self, position):
         """Show context menu for image display"""
         if not self.image_viewer.current_image_path:
             return
         
         menu = QMenu(self)
+        
+        # Copy to clipboard
         copy_action = menu.addAction("Copy Image to Clipboard")
         copy_action.triggered.connect(self.copy_to_clipboard)
+        
+        menu.addSeparator()
+        
+        # Rename image
+        rename_action = menu.addAction("Rename Image...")
+        rename_action.triggered.connect(self.rename_current_image)
+        
+        # Delete image
+        delete_action = menu.addAction("Delete Image...")
+        delete_action.triggered.connect(self.delete_current_image)
+        
         menu.exec_(self.image_viewer.get_image_display_widget().mapToGlobal(position))
 
     # ==================== Settings & Utilities ====================
