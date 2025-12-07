@@ -2,6 +2,11 @@
 # Simple script to easily run grab-o-scope.py with a user-friendly interface
 
 do {
+    # Ensure captures directory exists
+    $capturesDir = Join-Path -Path (Get-Location) -ChildPath "captures"
+    if (-not (Test-Path $capturesDir)) {
+        New-Item -ItemType Directory -Path $capturesDir | Out-Null
+    }
     # Prompt for base image name
     $baseName = Read-Host "Enter a base name for the image (e.g. example, capture, scope)"
 
