@@ -23,17 +23,18 @@ class SettingsDialog(QDialog):
         scope_layout = QFormLayout()
         
         self.instrument_name_input = QLineEdit()
-        self.instrument_name_input.setPlaceholderText("e.g., 10.10.1.123 (IP address) or leave blank for auto-detect")
+        self.instrument_name_input.setPlaceholderText("e.g., DS, DS1104Z, DHO924, 10.10.1.123, or leave blank for auto-detect")
         self.instrument_name_input.setToolTip(
-            "Enter part of the instrument's VISA resource name to filter detection:\n"
+            "Filter oscilloscope detection (case-insensitive):\n"
+            "• Model name or partial (e.g., DS, DS1104Z, DHO, DHO924)\n"
+            "• Manufacturer (e.g., RIGOL, KEYSIGHT)\n"
             "• IP address (e.g., 10.10.1.123)\n"
             "• Partial IP (e.g., 10.10.1)\n"
             "• Resource type (e.g., TCPIP)\n\n"
-            "NOTE: This filters by VISA resource name, NOT by model name.\n"
-            "Use the IP address for most reliable results.\n"
+            "Searches both VISA resource names and device IDN strings.\n"
             "Leave blank to auto-detect all connected oscilloscopes."
         )
-        scope_layout.addRow("Instrument Filter (IP):", self.instrument_name_input)
+        scope_layout.addRow("Instrument Filter:", self.instrument_name_input)
         
         scope_group.setLayout(scope_layout)
         layout.addWidget(scope_group)
@@ -48,6 +49,7 @@ class SettingsDialog(QDialog):
         filename_layout.addWidget(self.filename_input)
         
         browse_button = QPushButton("Browse...")
+        browse_button.setAutoDefault(False)  # Prevent from being triggered by Enter
         browse_button.clicked.connect(self.browse_output_file)
         filename_layout.addWidget(browse_button)
         
@@ -59,6 +61,7 @@ class SettingsDialog(QDialog):
         output_dir_layout.addWidget(self.output_dir_input)
         
         browse_dir_button = QPushButton("Browse...")
+        browse_dir_button.setAutoDefault(False)  # Prevent from being triggered by Enter
         browse_dir_button.clicked.connect(self.browse_output_dir)
         output_dir_layout.addWidget(browse_dir_button)
         
@@ -71,8 +74,8 @@ class SettingsDialog(QDialog):
         info_label = QLabel(
             "<b>Tips:</b><br>"
             "• <b>Instrument Filter:</b> Leave blank for auto-detect (recommended)<br>"
-            "• To filter by a specific scope, use its IP address (e.g., 10.10.1.231)<br>"
-            "• <b>Note:</b> Model names (like DS1104Z) won't work - use IP address instead<br>"
+            "• Search is case-insensitive: 'ds', 'DS', or 'rigol' all work<br>"
+            "• Partial matches: 'DS' finds all DS series, '10.10.1' finds subnet<br>"
             "• Output filename can include directory path"
         )
         info_label.setWordWrap(True)
@@ -86,6 +89,8 @@ class SettingsDialog(QDialog):
         self.save_button = QPushButton("Save")
         self.save_button.setMinimumWidth(100)
         self.save_button.clicked.connect(self.save_settings)
+        self.save_button.setDefault(True)  # Make Save the default button (activated by Enter)
+        self.save_button.setAutoDefault(True)
         self.save_button.setStyleSheet("""
             QPushButton {
                 background-color: #0078d4;
@@ -103,6 +108,7 @@ class SettingsDialog(QDialog):
         cancel_button = QPushButton("Cancel")
         cancel_button.setMinimumWidth(100)
         cancel_button.clicked.connect(self.reject)
+        cancel_button.setAutoDefault(False)  # Prevent Cancel from being default
         cancel_button.setStyleSheet("""
             QPushButton {
                 background-color: #e0e0e0;

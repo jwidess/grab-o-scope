@@ -117,7 +117,7 @@ class MainWindow(QMainWindow):
         # Buttons
         button_layout = QHBoxLayout()
         
-        self.capture_button = QPushButton("📷 Capture Oscilloscope Screen")
+        self.capture_button = QPushButton("Capture Oscilloscope Screen")
         self.capture_button.setMinimumHeight(40)
         self.capture_button.setStyleSheet("""
             QPushButton {
@@ -236,7 +236,7 @@ class MainWindow(QMainWindow):
     def on_capture_error(self, error_msg):
         """Handle capture error"""
         self.capture_button.setEnabled(True)
-        self.capture_button.setText("📷 Capture Oscilloscope Screen")
+        self.capture_button.setText("Capture Oscilloscope Screen")
         self.log(f"❌ Error: {error_msg}")
         QMessageBox.critical(self, "Capture Error", f"Failed to capture screen:\n{error_msg}")
 
