@@ -23,16 +23,14 @@ class SettingsDialog(QDialog):
         scope_layout = QFormLayout()
         
         self.instrument_name_input = QLineEdit()
-        self.instrument_name_input.setPlaceholderText("e.g., DS, DS1104Z, DHO924, 10.10.1.123, or leave blank for auto-detect")
+        self.instrument_name_input.setPlaceholderText("e.g., DS, DHO924, 10.10.1.123, or leave blank for auto-detect")
         self.instrument_name_input.setToolTip(
             "Filter oscilloscope detection (case-insensitive):\n"
-            "• Model name or partial (e.g., DS, DS1104Z, DHO, DHO924)\n"
-            "• Manufacturer (e.g., RIGOL, KEYSIGHT)\n"
+            "• Model name or manufacturer (e.g., DS, DHO924, Rigol)\n"
             "• IP address (e.g., 10.10.1.123)\n"
-            "• Partial IP (e.g., 10.10.1)\n"
-            "• Resource type (e.g., TCPIP)\n\n"
+            "• Resource type (e.g., TCPIP, USB)\n\n"
             "Searches both VISA resource names and device IDN strings.\n"
-            "Leave blank to auto-detect all connected oscilloscopes."
+            "Leave blank to auto-detect all connected scopes."
         )
         scope_layout.addRow("Instrument Filter:", self.instrument_name_input)
         
@@ -58,7 +56,7 @@ class SettingsDialog(QDialog):
         
         # Add note about automatic naming
         note_label = QLabel(
-            "<i>Note: Captures are automatically named with timestamp:<br>"
+            "<i>Note: Captures are auto named with timestamp:<br>"
             "capture_YYYYMMDD_HHMMSS.png (e.g., capture_20251206_143052.png)</i>"
         )
         note_label.setWordWrap(True)
@@ -72,7 +70,7 @@ class SettingsDialog(QDialog):
         info_label = QLabel(
             "<b>Tips:</b><br>"
             "• <b>Instrument Filter:</b> Leave blank for auto-detect<br>"
-            "• Search is case-insensitive: 'ds', 'DS', or 'rigol' all work<br>"
+            "• Search is case-insensitive<br>"
             "• Partial matches: 'DS' finds all DS series, '10.10.1' finds subnet<br>"
             "• Captures are automatically organized with timestamps<br>"
             "• Customize capture directory or use the default 'captures' folder"

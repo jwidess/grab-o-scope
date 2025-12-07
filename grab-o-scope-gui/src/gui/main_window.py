@@ -1,8 +1,8 @@
 from PyQt5.QtWidgets import (QMainWindow, QPushButton, QVBoxLayout, QHBoxLayout, 
                              QWidget, QFileDialog, QMessageBox, QTextEdit, QLabel,
-                             QSplitter, QMenuBar, QMenu, QAction)
-from PyQt5.QtCore import Qt, QThread, pyqtSignal
-from PyQt5.QtGui import QPixmap, QClipboard
+                             QSplitter, QMenuBar, QMenu, QAction, QShortcut)
+from PyQt5.QtCore import Qt, QThread, pyqtSignal, QTimer
+from PyQt5.QtGui import QPixmap, QClipboard, QKeySequence
 from PyQt5.QtWidgets import QApplication
 from core.grabber_wrapper import GrabberWrapper
 from gui.settings_dialog import SettingsDialog
@@ -58,6 +58,20 @@ class MainWindow(QMainWindow):
 
         self.init_ui()
         self.create_menu_bar()
+        
+        # Update navigation state on startup
+        self.update_navigation_buttons()
+        
+        # Set up timer to periodically check for file changes in captures directory
+        self.refresh_timer = QTimer(self)
+        self.refresh_timer.timeout.connect(self.refresh_navigation_state)
+        self.refresh_timer.start(1000)
+
+    def refresh_navigation_state(self):
+        """Periodically refresh navigation buttons to detect external file changes"""
+        # Only update if not actively capturing
+        if not (self.capture_thread and self.capture_thread.isRunning()):
+            self.update_navigation_buttons()
 
     def init_ui(self):
         # Main layout with splitter
@@ -73,19 +87,98 @@ class MainWindow(QMainWindow):
         image_layout.setContentsMargins(5, 5, 5, 5)
         image_layout.setSpacing(5)
         
+        # Header with title and navigation info
+        header_layout = QHBoxLayout()
         image_label = QLabel("Captured Image:")
         image_label.setStyleSheet("font-weight: bold; font-size: 12pt; padding: 2px;")
         image_label.setMaximumHeight(25)
-        image_layout.addWidget(image_label)
+        header_layout.addWidget(image_label)
         
+        header_layout.addStretch()
+        
+        self.nav_info_label = QLabel("")
+        self.nav_info_label.setStyleSheet("color: #666; font-size: 10pt; padding: 2px;")
+        self.nav_info_label.setMaximumHeight(25)
+        header_layout.addWidget(self.nav_info_label)
+        
+        image_layout.addLayout(header_layout)
+        
+        # Create horizontal layout for image with navigation buttons
+        image_nav_layout = QHBoxLayout()
+        
+        # Left arrow button
+        self.prev_button = QPushButton("◀")
+        self.prev_button.setMaximumWidth(50)
+        self.prev_button.setSizePolicy(self.prev_button.sizePolicy().horizontalPolicy(), 
+                                       self.prev_button.sizePolicy().Expanding)
+        self.prev_button.setStyleSheet("""
+            QPushButton {
+                background-color: #5c5c5c;
+                color: white;
+                font-size: 20pt;
+                font-weight: bold;
+                border-radius: 5px;
+            }
+            QPushButton:hover {
+                background-color: #707070;
+            }
+            QPushButton:pressed {
+                background-color: #4a4a4a;
+            }
+            QPushButton:disabled {
+                background-color: #cccccc;
+                color: #999999;
+            }
+        """)
+        self.prev_button.setToolTip("Previous image (older)")
+        self.prev_button.clicked.connect(self.show_previous_image)
+        self.prev_button.setEnabled(False)
+        image_nav_layout.addWidget(self.prev_button)
+        
+        # Image display in the center
         self.image_display = QLabel()
         self.image_display.setAlignment(Qt.AlignCenter)
         self.image_display.setStyleSheet("border: 2px solid #ccc; background-color: #f0f0f0;")
         self.image_display.setMinimumHeight(300)
         self.image_display.setText("No image captured yet")
+        self.image_display.setScaledContents(False)  # We'll handle scaling manually
         self.image_display.setContextMenuPolicy(Qt.CustomContextMenu)
         self.image_display.customContextMenuRequested.connect(self.show_image_context_menu)
-        image_layout.addWidget(self.image_display, stretch=1)  # Give it stretch priority
+        image_nav_layout.addWidget(self.image_display, stretch=1)  # Give it stretch priority
+        
+        # Store original pixmap for rescaling
+        self.original_pixmap = None
+        
+        # Right arrow button
+        self.next_button = QPushButton("▶")
+        self.next_button.setMaximumWidth(50)
+        self.next_button.setSizePolicy(self.next_button.sizePolicy().horizontalPolicy(), 
+                                       self.next_button.sizePolicy().Expanding)
+        self.next_button.setStyleSheet("""
+            QPushButton {
+                background-color: #5c5c5c;
+                color: white;
+                font-size: 20pt;
+                font-weight: bold;
+                border-radius: 5px;
+            }
+            QPushButton:hover {
+                background-color: #707070;
+            }
+            QPushButton:pressed {
+                background-color: #4a4a4a;
+            }
+            QPushButton:disabled {
+                background-color: #cccccc;
+                color: #999999;
+            }
+        """)
+        self.next_button.setToolTip("Next image (newer)")
+        self.next_button.clicked.connect(self.show_next_image)
+        self.next_button.setEnabled(False)
+        image_nav_layout.addWidget(self.next_button)
+        
+        image_layout.addLayout(image_nav_layout)
         
         image_widget.setLayout(image_layout)
         splitter.addWidget(image_widget)
@@ -217,8 +310,21 @@ class MainWindow(QMainWindow):
         main_widget.setLayout(main_layout)
         self.setCentralWidget(main_widget)
         
+        # Set up keyboard shortcuts for navigation
+        self.setup_keyboard_shortcuts()
+        
         self.log("Grab-O-Scope GUI initialized")
         self.log(f"Ready to capture from oscilloscope")
+
+    def setup_keyboard_shortcuts(self):
+        """Setup keyboard shortcuts for navigation"""
+        # Left arrow key for previous image
+        left_shortcut = QShortcut(QKeySequence(Qt.Key_Left), self)
+        left_shortcut.activated.connect(self.show_previous_image)
+        
+        # Right arrow key for next image
+        right_shortcut = QShortcut(QKeySequence(Qt.Key_Right), self)
+        right_shortcut.activated.connect(self.show_next_image)
 
     def create_menu_bar(self):
         menubar = self.menuBar()
@@ -335,23 +441,192 @@ class MainWindow(QMainWindow):
             self.log(f"⚠️ Failed to load image: {image_path}")
             return
         
+        # Store original pixmap for rescaling on resize
+        self.original_pixmap = pixmap
+        
+        # Scale and display
+        self.scale_and_display_image()
+        
+        # Update navigation buttons
+        self.update_navigation_buttons()
+
+    def scale_and_display_image(self):
+        """Scale the stored pixmap to fit the current display size"""
+        if self.original_pixmap is None or self.original_pixmap.isNull():
+            return
+        
+        # Get the available size (account for margins and borders)
+        available_width = self.image_display.width() - 10
+        available_height = self.image_display.height() - 10
+        
         # Scale image to fit display while maintaining aspect ratio
-        scaled_pixmap = pixmap.scaled(
-            self.image_display.width() - 10,
-            self.image_display.height() - 10,
+        scaled_pixmap = self.original_pixmap.scaled(
+            available_width,
+            available_height,
             Qt.KeepAspectRatio,
             Qt.SmoothTransformation
         )
         self.image_display.setPixmap(scaled_pixmap)
-        self.log(f"Displaying image: {os.path.basename(image_path)}")
+
+    def resizeEvent(self, event):
+        """Handle window resize to rescale the image"""
+        super().resizeEvent(event)
+        # Rescale image when window is resized
+        if self.original_pixmap is not None:
+            self.scale_and_display_image()
+
+    def get_sorted_captures(self):
+        """Get list of image files from captures directory sorted by modification time"""
+        capture_dir = self.get_capture_directory()
+        
+        if not os.path.exists(capture_dir):
+            return []
+        
+        # Get all image files
+        image_files = []
+        for filename in os.listdir(capture_dir):
+            if filename.lower().endswith(('.png', '.jpg', '.jpeg', '.bmp')):
+                filepath = os.path.join(capture_dir, filename)
+                if os.path.isfile(filepath):
+                    image_files.append(filepath)
+        
+        # Sort by modification time (oldest first)
+        image_files.sort(key=lambda x: os.path.getmtime(x))
+        
+        return image_files
+
+    def update_navigation_buttons(self):
+        """Update the enabled/disabled state of navigation buttons"""
+        sorted_captures = self.get_sorted_captures()
+        
+        # If no captures exist at all, disable navigation
+        if not sorted_captures:
+            self.prev_button.setEnabled(False)
+            self.next_button.setEnabled(False)
+            self.nav_info_label.setText("")
+            return
+        
+        # If we have captures but no image is loaded, enable both to allow initial navigation
+        if not self.last_captured_image or not os.path.exists(self.last_captured_image):
+            self.prev_button.setEnabled(len(sorted_captures) > 0)
+            self.next_button.setEnabled(len(sorted_captures) > 0)
+            self.nav_info_label.setText(f"Total images: {len(sorted_captures)} | Use ← → arrow keys to navigate")
+            return
+        
+        # If current image is not in the list (was deleted or modified), enable both buttons
+        # to allow user to navigate to find valid images
+        if self.last_captured_image not in sorted_captures:
+            self.prev_button.setEnabled(True)
+            self.next_button.setEnabled(True)
+            self.nav_info_label.setText(f"Total images: {len(sorted_captures)} | Use ← → arrow keys to navigate")
+            return
+        
+        current_index = sorted_captures.index(self.last_captured_image)
+        total_images = len(sorted_captures)
+        
+        # Update info label
+        self.nav_info_label.setText(f"Image {current_index + 1} of {total_images} | Use ← → arrow keys to navigate")
+        
+        # Enable previous button if not at the beginning
+        self.prev_button.setEnabled(current_index > 0)
+        
+        # Enable next button if not at the end
+        self.next_button.setEnabled(current_index < len(sorted_captures) - 1)
+
+    def show_previous_image(self):
+        """Show the previous image (older in time)"""
+        if not self.last_captured_image:
+            # If no image loaded, try to load the most recent one
+            sorted_captures = self.get_sorted_captures()
+            if sorted_captures:
+                self.last_captured_image = sorted_captures[-1]
+                self.display_image(self.last_captured_image)
+                self.save_button.setEnabled(True)
+                self.clear_button.setEnabled(True)
+            return
+        
+        sorted_captures = self.get_sorted_captures()
+        if not sorted_captures:
+            return
+        
+        # If current image was deleted/modified, find the closest one by timestamp
+        if self.last_captured_image not in sorted_captures:
+            current_mtime = os.path.getmtime(self.last_captured_image) if os.path.exists(self.last_captured_image) else 0
+            # Find the closest image that's older
+            prev_image = None
+            for img in sorted_captures:
+                img_mtime = os.path.getmtime(img)
+                if img_mtime < current_mtime:
+                    prev_image = img
+                else:
+                    break
+            if prev_image:
+                self.last_captured_image = prev_image
+                self.display_image(prev_image)
+                self.save_button.setEnabled(True)
+                self.clear_button.setEnabled(True)
+            return
+        
+        current_index = sorted_captures.index(self.last_captured_image)
+        if current_index > 0:
+            prev_image = sorted_captures[current_index - 1]
+            self.last_captured_image = prev_image
+            self.display_image(prev_image)
+            self.save_button.setEnabled(True)
+            self.clear_button.setEnabled(True)
+
+    def show_next_image(self):
+        """Show the next image (newer in time)"""
+        if not self.last_captured_image:
+            # If no image loaded, try to load the oldest one
+            sorted_captures = self.get_sorted_captures()
+            if sorted_captures:
+                self.last_captured_image = sorted_captures[0]
+                self.display_image(self.last_captured_image)
+                self.save_button.setEnabled(True)
+                self.clear_button.setEnabled(True)
+            return
+        
+        sorted_captures = self.get_sorted_captures()
+        if not sorted_captures:
+            return
+        
+        # If current image was deleted/modified, find the closest one by timestamp
+        if self.last_captured_image not in sorted_captures:
+            current_mtime = os.path.getmtime(self.last_captured_image) if os.path.exists(self.last_captured_image) else float('inf')
+            # Find the closest image that's newer
+            next_image = None
+            for img in reversed(sorted_captures):
+                img_mtime = os.path.getmtime(img)
+                if img_mtime > current_mtime:
+                    next_image = img
+                else:
+                    break
+            if next_image:
+                self.last_captured_image = next_image
+                self.display_image(next_image)
+                self.save_button.setEnabled(True)
+                self.clear_button.setEnabled(True)
+            return
+        
+        current_index = sorted_captures.index(self.last_captured_image)
+        if current_index < len(sorted_captures) - 1:
+            next_image = sorted_captures[current_index + 1]
+            self.last_captured_image = next_image
+            self.display_image(next_image)
+            self.save_button.setEnabled(True)
+            self.clear_button.setEnabled(True)
 
     def clear_image(self):
         """Clear the displayed image"""
         self.image_display.clear()
         self.image_display.setText("No image captured yet")
         self.last_captured_image = None
+        self.original_pixmap = None  # Clear stored pixmap
         self.save_button.setEnabled(False)
         self.clear_button.setEnabled(False)
+        # Update navigation - will enable buttons if captures exist
+        self.update_navigation_buttons()
         self.log("🗑️ Image cleared")
 
     def open_image_file(self):
