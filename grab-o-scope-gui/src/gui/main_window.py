@@ -281,7 +281,7 @@ class MainWindow(QMainWindow):
         self.grabber.options = self.options
         
         self.capture_button.setEnabled(False)
-        self.capture_button.setText("⏳ Capturing...")
+        self.capture_button.setText("Capturing...")
         self.image_viewer.show_loading()
         self.image_viewer.set_navigation_state(False, False)
         

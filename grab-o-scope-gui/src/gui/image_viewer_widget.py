@@ -15,6 +15,9 @@ class ImageViewerWidget(QWidget):
         super().__init__(parent)
         self.original_pixmap = None
         self.current_image_path = None
+        self.loading_dot_count = 0
+        self.loading_timer = QTimer()
+        self.loading_timer.timeout.connect(self._animate_loading)
         self.init_ui()
     
     def init_ui(self):
@@ -64,7 +67,7 @@ class ImageViewerWidget(QWidget):
             font-size: 24pt;
             font-weight: bold;
         """)
-        self.loading_overlay.setText("⏳ Capturing...")
+        self.loading_overlay.setText("⏳ Capturing")
         self.loading_overlay.hide()
         
         # Filename overlay (bottom left)
@@ -170,14 +173,24 @@ class ImageViewerWidget(QWidget):
         self.filename_overlay.hide()
     
     def show_loading(self):
-        """Show loading overlay"""
+        """Show loading overlay with animated dots"""
+        self.loading_dot_count = 0
+        self.loading_overlay.setText("Capturing")
         self.loading_overlay.setGeometry(0, 0, self.image_display.width(), self.image_display.height())
         self.loading_overlay.show()
         self.loading_overlay.raise_()
+        self.loading_timer.start(300)  # Loading dots delay
     
     def hide_loading(self):
-        """Hide loading overlay"""
+        """Hide loading overlay and stop animation"""
+        self.loading_timer.stop()
         self.loading_overlay.hide()
+    
+    def _animate_loading(self):
+        """Animate the loading dots from 0 to 3"""
+        self.loading_dot_count = (self.loading_dot_count + 1) % 4
+        dots = "." * self.loading_dot_count
+        self.loading_overlay.setText(f"Capturing{dots}")
     
     def set_navigation_state(self, prev_enabled, next_enabled):
         """Set the enabled state of navigation buttons"""
