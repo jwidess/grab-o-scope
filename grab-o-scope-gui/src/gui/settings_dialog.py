@@ -9,7 +9,7 @@ class SettingsDialog(QDialog):
         self.config_manager = config_manager
         self.config_data = config_manager.load_config()
         
-        self.setWindowTitle("Grab-O-Scope Settings")
+        self.setWindowTitle("Grab-O-Scope GUI Settings")
         self.setMinimumWidth(500)
         
         self.init_ui()
@@ -19,11 +19,11 @@ class SettingsDialog(QDialog):
         layout = QVBoxLayout()
         
         # Oscilloscope Settings Group
-        scope_group = QGroupBox("Oscilloscope Settings")
+        scope_group = QGroupBox("Search Settings")
         scope_layout = QFormLayout()
         
         self.instrument_name_input = QLineEdit()
-        self.instrument_name_input.setPlaceholderText("e.g., DS, DHO924, 10.10.1.123, leave blank for auto-detect")
+        self.instrument_name_input.setPlaceholderText("e.g., DHO924, 10.10.1.123, leave blank for auto-detect")
         self.instrument_name_input.setToolTip(
             "Filter oscilloscope detection (case-insensitive):\n"
             "• Model name or manufacturer (e.g., DS, DHO924, Rigol)\n"
