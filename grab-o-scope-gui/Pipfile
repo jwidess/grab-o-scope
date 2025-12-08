@@ -1,0 +1,22 @@
+[[source]]
+url = "https://pypi.org/simple"
+verify_ssl = true
+name = "pypi"
+
+[packages]
+pyqt5 = "*"
+pyvisa = "*"
+pyvisa-py = "*"
+pillow = "*"
+numpy = "*"
+psutil = "*"
+zeroconf = "*"
+
+[dev-packages]
+pytest = "*"
+pytest-qt = "*"
+black = "*"
+flake8 = "*"
+
+[requires]
+python_version = "3"

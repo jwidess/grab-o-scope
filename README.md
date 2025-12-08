@@ -6,14 +6,24 @@ under Windows, Linux and macOS.
 
 ![example screen grab](./assets/example-grab.png)
 
-_Note: At present, `grab-o-scope` supports the Rigol DHO924 and DS1054Z oscilloscopes. Other brands and models can be easily added -- see the developer notes on "Adding support for a new Oscilloscope"._
+### GUI Interface:
+
+![GUI Example](./grab-o-scope-gui/resources/gui-example.png)
 
 ## Features
 
+- **NEW!** - Python Based GUI, [more info HERE!](./grab-o-scope-gui/README.md)
 - Captures and saves screen images in PNG format
 - Optionally opens the captured image in the default system viewer
 - Verbose and trace modes for detailed logging and debugging
 - Different makes and models of oscilloscopes can be easily supported
+
+## Supported Devices
+
+- Keysight InfiniVision 3000T X-Series Oscilloscopes
+  - Tested on: DSOX 3012T
+- Rigol DHO924
+- Rigol DS1054Z
 
 ## Installation
 
@@ -45,21 +55,23 @@ pipenv update
 ```bash
 pip install pyvisa
 pip install pyvisa_py
+pip install zeroconf
 ```
+Optionally, run `pip install psutil` to scan all interfaces.
 
 ### 3a. Running grab-o-scope (with pipenv)
 
 ```bash
 cd grab-o-scope
 pipenv shell
-python grab_oscope.py [options]
+python grab_o_scope.py [options]
 ```
 
 ### 3b. Running grab-o-scope (without pipenv)
 
 ```bash
 cd grab-o-scope
-python grab_oscope.py [options]
+python grab_o_scope.py [options]
 ```
 
 ## Command-line Options
@@ -183,7 +195,7 @@ The byte array returned from `capture_screen()` is written into a .png file and 
 
 #### Python experts:
 
-To add support you8rself for a new oscilloscope model:
+To add support yourself for a new oscilloscope model:
 
 1. Clone this repository.
 2. Define a new subclass of Grabber.

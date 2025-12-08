@@ -1,0 +1,10 @@
+pytest
+pytest-cov
+PyQt5
+pyvisa
+pyvisa-py
+Pillow
+requests
+flake8
+black
+mypy
