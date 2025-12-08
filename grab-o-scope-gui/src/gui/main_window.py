@@ -15,6 +15,7 @@ import platform
 import subprocess
 import shutil
 from datetime import datetime
+import ctypes
 
 
 class CaptureThread(QThread):
@@ -51,6 +52,13 @@ class MainWindow(QMainWindow):
                                  'resources', 'icons', 'app_icon.ico')
         if os.path.exists(icon_path):
             self.setWindowIcon(QIcon(icon_path))
+            
+            # On Windows, set AppUserModelID for taskbar icon
+            if platform.system() == 'Windows':
+                try:
+                    ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID('graboScope.gui.1.0')
+                except:
+                    pass
         
         # Initialize configuration and options
         self.config = ConfigManager()
